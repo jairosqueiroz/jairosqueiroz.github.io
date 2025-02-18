@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Tarefas</title>
+    <style>
+        .task-completed {
+            text-decoration: line-through;
+        }
+        ul {
+            list-style-type: none;
+        }
+        #total-time {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1 id="Title">Lista de Tarefas</h1>
+    <input type="text" id="new-task-name" placeholder="Nova Tarefa" onkeypress="handleKeyPress(event)">
+    <button onclick="addTask()">Nova Tarefa e Iniciar Contador</button>
+    <ul id="tarefa-lista">
+        <!-- Tasks will be added here dynamically -->
+    </ul>
+    <button onclick="exportToPDF()">Exportar para PDF</button>
+    <input type="date" id="start-date" onchange="filterTasksByDate()" oninput="clearFilteredTasks()">
+    <input type="date" id="end-date" onchange="filterTasksByDate()" oninput="clearFilteredTasks()">
+
+    <h2>Arquivo</h2>
+    <ul id="filtered-tasks-list">
+        <!-- Filtered tasks will be displayed here -->
+    </ul>
+    <p id="total-time">Tempo Total: 00:00:00</p>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script>
+        let timers = {};
+        let archivedTasks = JSON.parse(localStorage.getItem('archivedTasks')) || [];
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                addTask();
+            }
+        }
+
+        function completeTask(taskId) {
+            const taskElement = document.getElementById(taskId);
+            const labelElement = taskElement.nextElementSibling;
+            const timerElement = document.getElementById(`timer-${taskId}`);
+            const archiveButton = document.getElementById(`archive-${taskId}`);
+
+            if (taskElement.checked) {
+                labelElement.classList.add('task-completed');
+                clearInterval(timers[taskId]);
+                delete timers[taskId];
+                archiveTask(taskId);
+                archiveButton.style.display = 'inline';
+            } else {
+                labelElement.classList.remove('task-completed');
+                archiveButton.style.display = 'none';
+            }
+        }
+
+        function startTimer(taskId) {
+            if (timers[taskId]) {
+                clearInterval(timers[taskId]);
+                delete timers[taskId];
+                return;
+            }
+
+            const timerElement = document.getElementById(`timer-${taskId}`);
+            let startTime = Date.now();
+            timers[taskId] = setInterval(() => {
+                let elapsedTime = Date.now() - startTime;
+                let hours = Math.floor(elapsedTime / 3600000);
+                let minutes = Math.floor((elapsedTime % 3600000) / 60000);
+                let seconds = Math.floor((elapsedTime % 60000) / 1000);
+                timerElement.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function addTask() {
+            const taskName = document.getElementById('new-task-name').value;
+            if (taskName.trim() === '') return;
+
+            const taskId = `tarefa${document.querySelectorAll('#tarefa-lista li').length + 1}`;
+            const taskList = document.getElementById('tarefa-lista');
+
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <input type="checkbox" id="${taskId}" onclick="completeTask('${taskId}')">
+                <label for="${taskId}">${taskName}</label>
+                <span id="timer-${taskId}">00:00:00</span>
+                <button id="archive-${taskId}" style="display:none;" onclick="archiveTask('${taskId}')">Archive</button>
+            `;
+            taskList.appendChild(li);
+
+            document.getElementById('new-task-name').value = '';
+            startTimer(taskId); // Start the timer automatically
+        }
+
+        function archiveTask(taskId) {
+            const taskElement = document.getElementById(taskId).parentElement;
+            const taskName = taskElement.querySelector('label').textContent;
+            const timer = taskElement.querySelector('span').textContent;
+            const date = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+            archivedTasks.push({ taskName, timer, date });
+            localStorage.setItem('archivedTasks', JSON.stringify(archivedTasks));
+            taskElement.remove();
+            filterTasksByDate(); // Update the filtered tasks if a date filter is applied
+        }
+
+        function deleteTask(taskIndex) {
+            archivedTasks.splice(taskIndex, 1);
+            localStorage.setItem('archivedTasks', JSON.stringify(archivedTasks));
+            filterTasksByDate();
+        }
+
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const margin = 10;
+            const lineHeight = 10;
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const maxLineWidth = pageWidth - 2 * margin;
+            let y = margin;
+
+            const tasks = document.querySelectorAll('#tarefa-lista li');
+            tasks.forEach(task => {
+                const taskName = task.querySelector('label').textContent;
+                const timer = task.querySelector('span').textContent;
+                const text = `${taskName} - Time: ${timer}`;
+                const lines = doc.splitTextToSize(text, maxLineWidth);
+                lines.forEach(line => {
+                    doc.text(line, margin, y);
+                    y += lineHeight;
+                });
+            });
+
+            archivedTasks.forEach(task => {
+                const text = `${task.taskName} - Time: ${task.timer} - Date: ${task.date}`;
+                const lines = doc.splitTextToSize(text, maxLineWidth);
+                lines.forEach(line => {
+                    doc.text(line, margin, y);
+                    y += lineHeight;
+                });
+            });
+
+            // Calculate total time
+            let totalSeconds = 0;
+            archivedTasks.forEach(task => {
+                const [hours, minutes, seconds] = task.timer.split(':').map(Number);
+                totalSeconds += (hours * 3600) + (minutes * 60) + seconds;
+            });
+
+            const totalHours = Math.floor(totalSeconds / 3600);
+            const totalMinutes = Math.floor((totalSeconds % 3600) / 60);
+            const totalRemainingSeconds = totalSeconds % 60;
+
+            doc.text(`Tempo Total: ${String(totalHours).padStart(2, '0')}:${String(totalMinutes).padStart(2, '0')}:${String(totalRemainingSeconds).padStart(2, '0')}`, margin, y + lineHeight);
+
+            doc.save('tasks.pdf');
+        }
+
+        function filterTasksByDate() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            if (!startDate || !endDate) {
+                return;
+            }
+
+            const filteredTasks = archivedTasks.filter(task => {
+                const taskDate = new Date(task.date.split('/').reverse().join('-'));
+                return taskDate >= new Date(startDate) && taskDate <= new Date(endDate);
+            });
+
+            const filteredList = document.getElementById('filtered-tasks-list');
+            filteredList.innerHTML = '';
+
+            let totalSeconds = 0;
+
+            filteredTasks.forEach((task, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `${task.taskName} - Time: ${task.timer} - Date: ${task.date} <button onclick="deleteTask(${index})">Delete</button>`;
+                filteredList.appendChild(li);
+
+                const [hours, minutes, seconds] = task.timer.split(':').map(Number);
+                totalSeconds += (hours * 3600) + (minutes * 60) + seconds;
+            });
+
+            const totalHours = Math.floor(totalSeconds / 3600);
+            const totalMinutes = Math.floor((totalSeconds % 3600) / 60);
+            const totalRemainingSeconds = totalSeconds % 60;
+
+            document.getElementById('total-time').textContent = `Tempo Total: ${String(totalHours).padStart(2, '0')}:${String(totalMinutes).padStart(2, '0')}:${String(totalRemainingSeconds).padStart(2, '0')}`;
+            document.getElementById('total-time').style.display = 'block';
+        }
+
+        function clearFilteredTasks() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            if (!startDate && !endDate) {
+                const filteredList = document.getElementById('filtered-tasks-list');
+                filteredList.innerHTML = '';
+                document.getElementById('total-time').textContent = 'Tempo Total: 00:00:00';
+                document.getElementById('total-time').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
