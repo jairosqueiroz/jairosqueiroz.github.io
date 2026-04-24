@@ -11,13 +11,13 @@
 <meta name="author" content="Jairo da Silva Queiroz">
 <meta name="robots" content="index, follow">
 <meta name="revised" content="2026-04-24">
-<link rel="canonical" href="https://jairosqueiroz.github.io/powershell-5-vs-7-comparison.html">
+<link rel="canonical" href="https://jairosqueiroz.github.io/kb/powershell-5-vs-7-comparison.html">
 
 <!-- Open Graph (social sharing + AI crawlers) -->
 <meta property="og:type" content="article">
 <meta property="og:title" content="PowerShell 5.1 vs PowerShell 7 — Full Comparison Matrix">
 <meta property="og:description" content="Full feature comparison matrix covering platform, language, performance, modules, remoting, security, and migration. Updated April 2026.">
-<meta property="og:url" content="https://jairosqueiroz.github.io/powershell-5-vs-7-comparison.html">
+<meta property="og:url" content="https://jairosqueiroz.github.io/kb/powershell-5-vs-7-comparison.html">
 <meta property="og:locale" content="en_US">
 <meta property="article:published_time" content="2026-04-24">
 <meta property="article:modified_time" content="2026-04-24">
@@ -77,23 +77,40 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-size: 15px;
     line-height: 1.5;
-    color: #1f2937;
-    background: #f3f4f6;
-    padding: 32px 24px 48px;
+    color: #2d3748;
+    background: #f7fafc;
+    padding: 0;
   }
+  /* Navigation bar — matches main site */
+  .site-nav {
+    background: #1a2332;
+    padding: 10px 40px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .site-nav a {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    text-decoration: none;
+  }
+  .site-nav a:hover { color: #fff; }
   .page {
     max-width: 1180px;
     margin: 0 auto;
     background: #ffffff;
-    border-radius: 10px;
+    border-radius: 0 0 10px 10px;
     box-shadow: 0 4px 18px rgba(0,0,0,0.06);
     overflow: hidden;
   }
   header {
-    background: linear-gradient(135deg, #0078d4 0%, #005a9e 100%);
+    background: linear-gradient(135deg, #1a2332 0%, #2d4a6f 100%);
     color: #fff;
     padding: 28px 36px;
   }
@@ -131,7 +148,7 @@
   }
   .full { grid-column: 1 / -1; }
   section {
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
     overflow: hidden;
     background: #fff;
@@ -141,7 +158,7 @@
     font-size: 15px;
     margin: 0;
     color: #fff;
-    background: #0078d4;
+    background: #1a2332;
     padding: 10px 16px;
     font-weight: 600;
     letter-spacing: 0.2px;
@@ -156,17 +173,17 @@
     word-break: break-word;
   }
   tr:last-child td { border-bottom: none; }
-  tr:nth-child(even) td { background: #fafbfc; }
+  tr:nth-child(even) td { background: #f7fafc; }
   th {
-    background: #f8fafc;
+    background: #f7fafc;
     font-weight: 600;
-    color: #475569;
+    color: #718096;
     font-size: 11.5px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 2px solid #e2e8f0;
   }
-  th:first-child, td:first-child { width: 28%; font-weight: 600; color: #111827; }
+  th:first-child, td:first-child { width: 28%; font-weight: 600; color: #1a2332; }
   .full th:first-child, .full td:first-child { width: 22%; }
   .grid > section { min-width: 0; }
   .yes  { color: #059669; font-weight: 600; }
@@ -181,7 +198,7 @@
   .guide div { padding: 16px 20px; border-radius: 8px; }
   .stay { background: #fef3c7; border-left: 4px solid #d97706; }
   .move { background: #d1fae5; border-left: 4px solid #059669; }
-  .guide h3 { margin: 0 0 8px 0; font-size: 15px; color: #111827; }
+  .guide h3 { margin: 0 0 8px 0; font-size: 15px; color: #1a2332; }
   .guide ul { margin: 0; padding-left: 20px; font-size: 13.5px; }
   .guide li { margin-bottom: 4px; }
 
@@ -193,29 +210,29 @@
     gap: 7px;
     align-items: center;
   }
-  .tags-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-right: 4px; }
+  .tags-label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-right: 4px; }
   .tag {
     display: inline-block;
-    background: #eff6ff;
-    color: #1d4ed8;
-    border: 1px solid #bfdbfe;
+    background: #e8f4fd;
+    color: #0078d4;
+    border: 1px solid #bee3f8;
     border-radius: 20px;
     padding: 2px 10px;
     font-size: 11.5px;
     font-weight: 500;
     text-decoration: none;
   }
-  .tag:hover { background: #dbeafe; }
+  .tag:hover { background: #d0e8f7; }
 
   /* Footer */
   footer {
     padding: 20px 36px 28px;
-    border-top: 1px solid #e5e7eb;
-    background: #fafbfc;
+    border-top: 1px solid #e2e8f0;
+    background: #f7fafc;
   }
   .footer-version {
     font-size: 11.5px;
-    color: #374151;
+    color: #2d3748;
     font-weight: 600;
     margin-bottom: 12px;
     display: flex;
@@ -224,7 +241,7 @@
     flex-wrap: wrap;
   }
   .footer-version .v-badge {
-    background: #0078d4;
+    background: #1a2332;
     color: #fff;
     border-radius: 4px;
     padding: 2px 8px;
@@ -232,7 +249,7 @@
   }
   .refs-title {
     font-size: 11px;
-    color: #6b7280;
+    color: #718096;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-weight: 600;
@@ -248,7 +265,7 @@
     align-items: flex-start;
     gap: 8px;
     font-size: 12px;
-    color: #374151;
+    color: #2d3748;
   }
   .ref-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
   .ref-item a {
@@ -257,29 +274,51 @@
     line-height: 1.4;
   }
   .ref-item a:hover { text-decoration: underline; }
-  .ref-item span { color: #6b7280; font-size: 11px; display: block; }
+  .ref-item span { color: #718096; font-size: 11px; display: block; }
   .footer-copy {
     margin-top: 14px;
     font-size: 11px;
-    color: #9ca3af;
+    color: #718096;
     text-align: center;
   }
+  /* Site footer — matches main site */
+  .site-footer {
+    background: #1a2332;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 20px 40px;
+    text-align: center;
+    font-size: 12px;
+    max-width: 1180px;
+    margin: 0 auto;
+    border-radius: 0 0 10px 10px;
+  }
+  .site-footer a { color: rgba(255, 255, 255, 0.9); text-decoration: none; }
+  .site-footer a:hover { color: #fff; }
 
   @media (max-width: 860px) {
     .grid { grid-template-columns: 1fr; }
     .guide { grid-template-columns: 1fr; }
-    body { padding: 16px 10px; }
     .content, .tags-section, footer { padding-left: 20px; padding-right: 20px; }
     header { padding: 22px 20px; }
     .refs-grid { grid-template-columns: 1fr; }
+    .site-nav { padding: 10px 20px; justify-content: center; }
   }
   @media print {
     body { background: #fff; padding: 0; }
     .page { box-shadow: none; border-radius: 0; max-width: none; }
+    .site-nav, .site-footer { display: none; }
   }
 </style>
 </head>
 <body>
+
+<!-- Site Navigation -->
+<nav class="site-nav">
+    <a href="../index.html">Home</a>
+    <a href="../cv.html">CV</a>
+    <a href="index.html">Knowledge Base</a>
+    <a href="../contato.html">Contact</a>
+</nav>
 
 <article class="page" itemscope itemtype="https://schema.org/TechArticle">
   <meta itemprop="datePublished" content="2026-04-24">
@@ -538,5 +577,14 @@
   </footer>
 
 </article>
+
+<!-- Site Footer -->
+<div class="site-footer">
+    <a href="../index.html">&larr; Home</a> &middot;
+    <a href="index.html">Knowledge Base</a> &middot;
+    <a href="../cv.html">CV</a> &middot;
+    Jairo da Silva Queiroz
+</div>
+
 </body>
 </html>
