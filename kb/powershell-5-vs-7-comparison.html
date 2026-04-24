@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: https://ogp.me/ns#">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PowerShell 5.1 vs PowerShell 7 — Full Comparison Matrix</title>
+
+<!-- SEO & Indexing -->
+<meta name="description" content="Full feature comparison matrix between Windows PowerShell 5.1 and PowerShell 7 — covering platform, language, performance, modules, remoting, security, ecosystem, and migration guidance. Updated April 2026.">
+<meta name="keywords" content="PowerShell 5.1, PowerShell 7, PowerShell 7.6, Windows PowerShell, pwsh, .NET Core, .NET 10, comparison, migration, LTS, Desktop edition, Core edition, ForEach-Object Parallel, PSReadLine, SSH remoting, WMF 5.1">
+<meta name="author" content="Jairo da Silva Queiroz">
+<meta name="robots" content="index, follow">
+<meta name="revised" content="2026-04-24">
+<link rel="canonical" href="https://jairosqueiroz.github.io/powershell-5-vs-7-comparison.html">
+
+<!-- Open Graph (social sharing + AI crawlers) -->
+<meta property="og:type" content="article">
+<meta property="og:title" content="PowerShell 5.1 vs PowerShell 7 — Full Comparison Matrix">
+<meta property="og:description" content="Full feature comparison matrix covering platform, language, performance, modules, remoting, security, and migration. Updated April 2026.">
+<meta property="og:url" content="https://jairosqueiroz.github.io/powershell-5-vs-7-comparison.html">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2026-04-24">
+<meta property="article:modified_time" content="2026-04-24">
+<meta property="article:tag" content="PowerShell">
+<meta property="article:tag" content="Windows PowerShell">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="Automation">
+<meta property="article:tag" content="Migration">
+
+<!-- Schema.org structured data for AI/search indexing -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "PowerShell 5.1 vs PowerShell 7 — Full Comparison Matrix",
+  "description": "Full feature comparison matrix between Windows PowerShell 5.1 and PowerShell 7, including platform, language, performance, modules, remoting, security, and migration guidance.",
+  "keywords": "PowerShell 5.1, PowerShell 7, PowerShell 7.6, pwsh, .NET 10, migration, comparison, LTS",
+  "datePublished": "2026-04-24",
+  "dateModified": "2026-04-24",
+  "version": "1.2",
+  "author": {
+    "@type": "Person",
+    "name": "Jairo da Silva Queiroz",
+    "url": "https://jairosqueiroz.github.io"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "Jairo da Silva Queiroz",
+    "url": "https://jairosqueiroz.github.io"
+  },
+  "citation": [
+    {
+      "@type": "WebPage",
+      "name": "PowerShell Support Lifecycle — Microsoft Learn",
+      "url": "https://learn.microsoft.com/en-us/powershell/scripting/install/powershell-support-lifecycle"
+    },
+    {
+      "@type": "WebPage",
+      "name": "What's New in PowerShell 7.6 — Microsoft Learn",
+      "url": "https://learn.microsoft.com/en-us/powershell/scripting/whats-new/what-s-new-in-powershell-76"
+    },
+    {
+      "@type": "WebPage",
+      "name": "PowerShell GitHub Releases",
+      "url": "https://github.com/PowerShell/PowerShell/releases"
+    },
+    {
+      "@type": "WebPage",
+      "name": "PowerShell End-of-Life Schedule — endoflife.date",
+      "url": "https://endoflife.date/powershell"
+    }
+  ]
+}
+</script>
+
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    color: #1f2937;
+    background: #f3f4f6;
+    padding: 32px 24px 48px;
+  }
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  header {
+    background: linear-gradient(135deg, #0078d4 0%, #005a9e 100%);
+    color: #fff;
+    padding: 28px 36px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+  .header-meta {
+    margin: 8px 0 0 0;
+    font-size: 13px;
+    opacity: 0.85;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .header-meta span { display: flex; align-items: center; gap: 5px; }
+  .badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .content { padding: 28px 36px 36px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .full { grid-column: 1 / -1; }
+  section {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    break-inside: avoid;
+  }
+  h2 {
+    font-size: 15px;
+    margin: 0;
+    color: #fff;
+    background: #0078d4;
+    padding: 10px 16px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; table-layout: fixed; }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #475569;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+  th:first-child, td:first-child { width: 28%; font-weight: 600; color: #111827; }
+  .full th:first-child, .full td:first-child { width: 22%; }
+  .grid > section { min-width: 0; }
+  .yes  { color: #059669; font-weight: 600; }
+  .no   { color: #dc2626; font-weight: 600; }
+  .warn { color: #d97706; font-weight: 600; }
+  .guide {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 16px;
+  }
+  .guide div { padding: 16px 20px; border-radius: 8px; }
+  .stay { background: #fef3c7; border-left: 4px solid #d97706; }
+  .move { background: #d1fae5; border-left: 4px solid #059669; }
+  .guide h3 { margin: 0 0 8px 0; font-size: 15px; color: #111827; }
+  .guide ul { margin: 0; padding-left: 20px; font-size: 13.5px; }
+  .guide li { margin-bottom: 4px; }
+
+  /* Tags */
+  .tags-section {
+    padding: 14px 36px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
+  }
+  .tags-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-right: 4px; }
+  .tag {
+    display: inline-block;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11.5px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .tag:hover { background: #dbeafe; }
+
+  /* Footer */
+  footer {
+    padding: 20px 36px 28px;
+    border-top: 1px solid #e5e7eb;
+    background: #fafbfc;
+  }
+  .footer-version {
+    font-size: 11.5px;
+    color: #374151;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .footer-version .v-badge {
+    background: #0078d4;
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+  .refs-title {
+    font-size: 11px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .refs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 8px;
+  }
+  .ref-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    color: #374151;
+  }
+  .ref-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .ref-item a {
+    color: #0078d4;
+    text-decoration: none;
+    line-height: 1.4;
+  }
+  .ref-item a:hover { text-decoration: underline; }
+  .ref-item span { color: #6b7280; font-size: 11px; display: block; }
+  .footer-copy {
+    margin-top: 14px;
+    font-size: 11px;
+    color: #9ca3af;
+    text-align: center;
+  }
+
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: 1fr; }
+    .guide { grid-template-columns: 1fr; }
+    body { padding: 16px 10px; }
+    .content, .tags-section, footer { padding-left: 20px; padding-right: 20px; }
+    header { padding: 22px 20px; }
+    .refs-grid { grid-template-columns: 1fr; }
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .page { box-shadow: none; border-radius: 0; max-width: none; }
+  }
+</style>
+</head>
+<body>
+
+<article class="page" itemscope itemtype="https://schema.org/TechArticle">
+  <meta itemprop="datePublished" content="2026-04-24">
+  <meta itemprop="dateModified" content="2026-04-24">
+  <meta itemprop="version" content="1.2">
+  <meta itemprop="keywords" content="PowerShell 5.1, PowerShell 7, PowerShell 7.6, pwsh, migration, comparison, LTS, .NET 10">
+
+  <header>
+    <h1 itemprop="headline">PowerShell 5.1 vs PowerShell 7</h1>
+    <div class="header-meta">
+      <span>Full comparison matrix — platform, language, performance, modules, remoting, security &amp; migration</span>
+      <span class="badge">v1.2</span>
+      <span class="badge">Updated Apr 2026</span>
+      <span class="badge">LTS: 7.6 / .NET 10</span>
+    </div>
+  </header>
+
+  <!-- Tags for indexing and AI consumption -->
+  <div class="tags-section" aria-label="Document tags">
+    <span class="tags-label">Tags</span>
+    <a class="tag" href="#core-platform">powershell</a>
+    <a class="tag" href="#core-platform">windows-powershell-5.1</a>
+    <a class="tag" href="#core-platform">powershell-7</a>
+    <a class="tag" href="#core-platform">powershell-7.6-lts</a>
+    <a class="tag" href="#language">dotnet-10</a>
+    <a class="tag" href="#language">language-features</a>
+    <a class="tag" href="#modules">module-compatibility</a>
+    <a class="tag" href="#remoting">ssh-remoting</a>
+    <a class="tag" href="#security">security</a>
+    <a class="tag" href="#migration">migration-guide</a>
+    <a class="tag" href="#ecosystem">psresourceget</a>
+    <a class="tag" href="#guide">devops</a>
+    <a class="tag" href="#guide">automation</a>
+    <a class="tag" href="#guide">infrastructure-as-code</a>
+  </div>
+
+  <div class="content">
+    <div class="grid">
+
+      <section id="core-platform" class="full" aria-labelledby="h-platform">
+        <h2 id="h-platform">Core Platform</h2>
+        <table>
+          <thead><tr><th>Dimension</th><th>PowerShell 5.1</th><th>PowerShell 7</th></tr></thead>
+          <tbody>
+            <tr><td>Runtime</td><td>.NET Framework 4.5+</td><td>.NET 8 / 9 / 10 (7.4 / 7.5 / 7.6)</td></tr>
+            <tr><td>Current LTS (Apr 2026)</td><td>—</td><td class="yes">7.6.1 on .NET 10 — released 18 Mar 2026</td></tr>
+            <tr><td>Current Stable (Apr 2026)</td><td>—</td><td>7.5.6 on .NET 9</td></tr>
+            <tr><td>Previous LTS</td><td>—</td><td class="warn">7.4.15 — support ends 10 Nov 2026</td></tr>
+            <tr><td>Edition</td><td>Desktop</td><td>Core</td></tr>
+            <tr><td>OS support</td><td>Windows only</td><td>Windows / Linux / macOS</td></tr>
+            <tr><td>Install</td><td>Built-in (WMF 5.1)</td><td>MSI / winget / brew / apt</td></tr>
+            <tr><td>Executable</td><td>powershell.exe</td><td>pwsh(.exe)</td></tr>
+            <tr><td>Profile path</td><td>C:\Users\&lt;User&gt;\Documents\WindowsPowerShell</td><td>C:\Users\&lt;User&gt;\Documents\PowerShell</td></tr>
+            <tr><td>Lifecycle</td><td class="warn">Maintenance only</td><td class="yes">Active + LTS</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="language" aria-labelledby="h-lang">
+        <h2 id="h-lang">Language &amp; Syntax</h2>
+        <table>
+          <thead><tr><th>Feature</th><th>5.1</th><th>7</th></tr></thead>
+          <tbody>
+            <tr><td>Pipeline chain (&amp;&amp;, ||)</td><td class="no">No</td><td class="yes">Yes</td></tr>
+            <tr><td>Null-coalescing (??, ??=)</td><td class="no">No</td><td class="yes">Yes</td></tr>
+            <tr><td>Null-conditional (?., ?[])</td><td class="no">No</td><td class="yes">Yes</td></tr>
+            <tr><td>Ternary (a ? b : c)</td><td class="no">No</td><td class="yes">Yes</td></tr>
+            <tr><td>ForEach-Object -Parallel</td><td class="no">No</td><td class="yes">Yes</td></tr>
+            <tr><td>Error view / Get-Error</td><td>Legacy only</td><td class="yes">ConciseView default</td></tr>
+            <tr><td>Cross-platform paths</td><td>Windows-style</td><td class="yes">/ and \ both</td></tr>
+            <tr><td>PSWhere() / PSForEach() aliases</td><td class="no">No</td><td class="yes">Yes (7.6+)</td></tr>
+            <tr><td>Join-Path multi -ChildPath</td><td class="no">No</td><td class="yes">Yes (7.6+)</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="performance" aria-labelledby="h-perf">
+        <h2 id="h-perf">Performance</h2>
+        <table>
+          <thead><tr><th>Area</th><th>5.1</th><th>7</th></tr></thead>
+          <tbody>
+            <tr><td>Startup time</td><td>Slower</td><td class="yes">2–3× faster</td></tr>
+            <tr><td>JSON conversion</td><td>Older serializer</td><td class="yes">Significantly faster</td></tr>
+            <tr><td>ForEach-Object</td><td>Single-threaded</td><td class="yes">Parallel available</td></tr>
+            <tr><td>Import-Csv / pipelines</td><td>Baseline</td><td class="yes">Faster</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="modules" aria-labelledby="h-modules">
+        <h2 id="h-modules">Module &amp; Cmdlet Compatibility</h2>
+        <table>
+          <thead><tr><th>Area</th><th>5.1</th><th>7</th></tr></thead>
+          <tbody>
+            <tr><td>Windows-only modules (AD, GPO)</td><td class="yes">Native</td><td>-UseWindowsPowerShell bridge</td></tr>
+            <tr><td>Workflows (workflow kw)</td><td class="yes">Yes</td><td class="no">Removed</td></tr>
+            <tr><td>Get-WmiObject</td><td class="yes">Yes</td><td class="no">Removed → Get-CimInstance</td></tr>
+            <tr><td>Snap-ins (Add-PSSnapin)</td><td class="yes">Yes</td><td class="no">Removed</td></tr>
+            <tr><td>PSReadLine predictive</td><td>v2.0 base</td><td class="yes">v2.2+ IntelliSense</td></tr>
+            <tr><td>DSC</td><td>v1/v2</td><td>v2 module (v3 separate)</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="remoting" aria-labelledby="h-remoting">
+        <h2 id="h-remoting">Remoting</h2>
+        <table>
+          <thead><tr><th>Feature</th><th>5.1</th><th>7</th></tr></thead>
+          <tbody>
+            <tr><td>WinRM / WSMan</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+            <tr><td>SSH-based remoting</td><td class="no">No</td><td class="yes">Yes (native)</td></tr>
+            <tr><td>PSRP over SSH</td><td class="no">No</td><td class="yes">Yes</td></tr>
+            <tr><td>Cross-platform sessions</td><td class="no">No</td><td class="yes">Yes</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="security" aria-labelledby="h-security">
+        <h2 id="h-security">Security</h2>
+        <table>
+          <thead><tr><th>Feature</th><th>5.1</th><th>7</th></tr></thead>
+          <tbody>
+            <tr><td>Script block logging</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+            <tr><td>AMSI integration</td><td class="yes">Yes</td><td class="yes">Enhanced</td></tr>
+            <tr><td>Constrained Language Mode</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+            <tr><td>JEA</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+            <tr><td>SecretManagement module</td><td>Manual</td><td class="yes">Official module</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="ecosystem" aria-labelledby="h-ecosystem">
+        <h2 id="h-ecosystem">Ecosystem &amp; Tooling</h2>
+        <table>
+          <thead><tr><th>Area</th><th>5.1</th><th>7</th></tr></thead>
+          <tbody>
+            <tr><td>Telemetry</td><td>None</td><td>Opt-out env var</td></tr>
+            <tr><td>PowerShell Gallery</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+            <tr><td>PSResourceGet</td><td class="no">No</td><td class="yes">Yes (1.2.0 in 7.6)</td></tr>
+            <tr><td>Experimental features</td><td class="no">No</td><td class="yes">Enable-ExperimentalFeature</td></tr>
+            <tr><td>Side-by-side install</td><td>—</td><td class="yes">Coexists with 5.1</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="migration" aria-labelledby="h-migration">
+        <h2 id="h-migration">Migration Quick Notes</h2>
+        <table>
+          <tbody>
+            <tr><td>WMI → CIM</td><td colspan="2">Get-WmiObject → Get-CimInstance; Invoke-WmiMethod → Invoke-CimMethod</td></tr>
+            <tr><td>Workflows</td><td colspan="2">Rewrite as functions / jobs / ForEach -Parallel</td></tr>
+            <tr><td>Snap-ins</td><td colspan="2">Convert to modules or use implicit remoting</td></tr>
+            <tr><td>Edition branching</td><td colspan="2">Check $PSVersionTable.PSEdition in scripts</td></tr>
+            <tr><td>Legacy bridge</td><td colspan="2">Import-Module -UseWindowsPowerShell</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="guide" class="full" aria-labelledby="h-guide">
+        <h2 id="h-guide">When to Use Which</h2>
+        <div class="guide">
+          <div class="stay">
+            <h3>Stay on 5.1</h3>
+            <ul>
+              <li>Legacy vendor modules without Core support</li>
+              <li>Workflows still in production use</li>
+              <li>Locked-down Windows Server without pwsh deployed</li>
+              <li>DSC v1 pull server infrastructure</li>
+              <li>Old Exchange on-prem snap-ins</li>
+            </ul>
+          </div>
+          <div class="move">
+            <h3>Move to 7</h3>
+            <ul>
+              <li>Cross-platform scripts (CI/CD, Linux, containers)</li>
+              <li>Performance-sensitive automation</li>
+              <li>New development — 7 is the forward path</li>
+              <li>Parallel processing, SSH remoting, modern syntax</li>
+              <li>Azure/M365 automation via modern Az modules</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-version">
+      <span><span class="v-badge">v1.2</span></span>
+      <span>Document version 1.2 — Last updated: <time datetime="2026-04-24">April 24, 2026</time></span>
+      <span>Covers: PowerShell 5.1 · 7.4 LTS · 7.5 Stable · 7.6 LTS (.NET 10)</span>
+    </div>
+    <div class="refs-title">References &amp; Sources</div>
+    <div class="refs-grid">
+      <div class="ref-item">
+        <span class="ref-icon">📘</span>
+        <div>
+          <a href="https://learn.microsoft.com/en-us/powershell/scripting/install/powershell-support-lifecycle" target="_blank" rel="noopener">PowerShell Support Lifecycle</a>
+          <span>Microsoft Learn — lifecycle, LTS/Stable dates</span>
+        </div>
+      </div>
+      <div class="ref-item">
+        <span class="ref-icon">📘</span>
+        <div>
+          <a href="https://learn.microsoft.com/en-us/powershell/scripting/whats-new/what-s-new-in-powershell-76" target="_blank" rel="noopener">What's New in PowerShell 7.6</a>
+          <span>Microsoft Learn — features, cmdlet changes</span>
+        </div>
+      </div>
+      <div class="ref-item">
+        <span class="ref-icon">📘</span>
+        <div>
+          <a href="https://learn.microsoft.com/en-us/powershell/scripting/whats-new/migrating-from-windows-powershell-51-to-powershell-7" target="_blank" rel="noopener">Migrating from 5.1 to PowerShell 7</a>
+          <span>Microsoft Learn — compatibility &amp; migration guide</span>
+        </div>
+      </div>
+      <div class="ref-item">
+        <span class="ref-icon">📘</span>
+        <div>
+          <a href="https://learn.microsoft.com/en-us/powershell/scripting/security/security-features" target="_blank" rel="noopener">PowerShell Security Features</a>
+          <span>Microsoft Learn — AMSI, CLM, JEA, logging</span>
+        </div>
+      </div>
+      <div class="ref-item">
+        <span class="ref-icon">🐙</span>
+        <div>
+          <a href="https://github.com/PowerShell/PowerShell/releases" target="_blank" rel="noopener">PowerShell Releases — GitHub</a>
+          <span>Official release notes &amp; changelog</span>
+        </div>
+      </div>
+      <div class="ref-item">
+        <span class="ref-icon">🐙</span>
+        <div>
+          <a href="https://github.com/PowerShell/PowerShell/blob/master/CHANGELOG/CHANGELOG-7.6.md" target="_blank" rel="noopener">PowerShell 7.6 CHANGELOG — GitHub</a>
+          <span>Detailed change log for 7.6 LTS</span>
+        </div>
+      </div>
+      <div class="ref-item">
+        <span class="ref-icon">💬</span>
+        <div>
+          <a href="https://techcommunity.microsoft.com/t5/powershell/bg-p/PowerShell" target="_blank" rel="noopener">PowerShell Tech Community Blog</a>
+          <span>Microsoft Tech Community — announcements &amp; deep-dives</span>
+        </div>
+      </div>
+      <div class="ref-item">
+        <span class="ref-icon">🗓️</span>
+        <div>
+          <a href="https://endoflife.date/powershell" target="_blank" rel="noopener">PowerShell End-of-Life Schedule</a>
+          <span>endoflife.date — version EOL tracker (updated 23 Apr 2026)</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer-copy">
+      PowerShell 5.1 (Desktop / .NET Framework) vs PowerShell 7.x (Core / .NET 8–10) · <a href="https://jairosqueiroz.github.io" style="color:#9ca3af">jairosqueiroz.github.io</a>
+    </div>
+  </footer>
+
+</article>
+</body>
+</html>
