@@ -101,6 +101,19 @@
     text-decoration: none;
   }
   .site-nav a:hover { color: #fff; }
+  .dl-btn {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    padding: 3px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .dl-btn:hover { background: rgba(255,255,255,0.25); color: #fff; }
   .page {
     max-width: 1180px;
     margin: 0 auto;
@@ -306,7 +319,7 @@
   @media print {
     body { background: #fff; padding: 0; }
     .page { box-shadow: none; border-radius: 0; max-width: none; }
-    .site-nav, .site-footer { display: none; }
+    .site-nav, .site-footer, .dl-btn { display: none; }
   }
 </style>
 </head>
@@ -318,6 +331,7 @@
     <a href="../cv.html">CV</a>
     <a href="index.html">Knowledge Base</a>
     <a href="../contato.html">Contact</a>
+    <button class="dl-btn" onclick="downloadPage()">Download Page</button>
 </nav>
 
 <article class="page" itemscope itemtype="https://schema.org/TechArticle">
@@ -586,5 +600,16 @@
     Jairo da Silva Queiroz
 </div>
 
+<script>
+function downloadPage() {
+  var html = document.documentElement.outerHTML;
+  var blob = new Blob(['<!DOCTYPE html>\n' + html], { type: 'text/html' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = location.pathname.split('/').pop() || 'page.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
 </body>
 </html>
