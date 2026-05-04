@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: https://ogp.me/ns#">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud-to-AD User Bridge — Importing Entra ID Users into On-Premises Active Directory</title>
+
+<!-- SEO & Indexing -->
+<meta name="description" content="A practical runbook for bridging cloud-only Microsoft Entra ID users back into an on-premises Active Directory using soft-match and hard-match strategies, idempotent PowerShell, and production-ready operations.">
+<meta name="keywords" content="Microsoft Entra ID, Active Directory, Entra Connect, hybrid identity, soft match, hard match, ImmutableId, PowerShell, AD DS, cloud-to-AD, user provisioning">
+<meta name="author" content="Jairo da Silva Queiroz">
+<meta name="robots" content="index, follow">
+<meta name="revised" content="2026-05-04">
+<link rel="canonical" href="https://jairosqueiroz.github.io/kb/cloud-to-ad-user-bridge.html">
+
+<!-- Open Graph -->
+<meta property="og:type" content="article">
+<meta property="og:title" content="Cloud-to-AD User Bridge — Importing Entra ID Users into On-Premises Active Directory">
+<meta property="og:description" content="Practical runbook for bridging cloud-only Entra ID users back into on-prem AD using soft-match, hard-match, and idempotent PowerShell.">
+<meta property="og:url" content="https://jairosqueiroz.github.io/kb/cloud-to-ad-user-bridge.html">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2026-05-04">
+<meta property="article:modified_time" content="2026-05-04">
+<meta property="article:tag" content="Entra ID">
+<meta property="article:tag" content="Active Directory">
+<meta property="article:tag" content="Hybrid Identity">
+<meta property="article:tag" content="PowerShell">
+
+<!-- Schema.org -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Cloud-to-AD User Bridge — Importing Microsoft Entra ID Users into On-Premises Active Directory",
+  "description": "A practical runbook for bridging cloud-only Entra ID users into on-premises AD using soft-match, hard-match, and idempotent PowerShell.",
+  "keywords": "Entra ID, Active Directory, hybrid identity, soft match, hard match, ImmutableId, PowerShell, Entra Connect",
+  "datePublished": "2026-05-04",
+  "dateModified": "2026-05-04",
+  "version": "1.0",
+  "author": {
+    "@type": "Person",
+    "name": "Jairo da Silva Queiroz",
+    "url": "https://jairosqueiroz.github.io"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "Jairo da Silva Queiroz",
+    "url": "https://jairosqueiroz.github.io"
+  }
+}
+</script>
+
+<style>
+  :root {
+    --accent: #2563EB;
+    --accent-dark: #1D4ED8;
+    --accent-light: #DBEAFE;
+    --purple: #7C3AED;
+    --teal: #0891B2;
+    --success: #059669;
+    --success-bg: #D1FAE5;
+    --warning: #D97706;
+    --warning-bg: #FEF3C7;
+    --danger: #DC2626;
+    --danger-bg: #FEE2E2;
+    --text: #0F172A;
+    --text-muted: #475569;
+    --text-subtle: #64748B;
+    --border: #E2E8F0;
+    --border-light: #F1F5F9;
+    --bg: #FFFFFF;
+    --bg-soft: #F8FAFC;
+    --bg-code: #0F172A;
+    --code-text: #E2E8F0;
+    --code-keyword: #93C5FD;
+    --code-string: #86EFAC;
+    --code-comment: #64748B;
+    --code-number: #FCA5A5;
+    --code-fn: #FDE68A;
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.05), 0 2px 4px rgba(15, 23, 42, 0.06);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --mono: 'SF Mono', Monaco, Menlo, Consolas, 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--text);
+    background: #f7fafc;
+  }
+
+  /* ───────── SITE NAV (matches powershell-5-vs-7-comparison.html) ───────── */
+  .site-nav {
+    background: #1a2332;
+    padding: 10px 40px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .site-nav a {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    text-decoration: none;
+  }
+  .site-nav a:hover { color: #fff; }
+  .dl-btn {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    padding: 3px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .dl-btn:hover { background: rgba(255,255,255,0.25); color: #fff; }
+
+  /* ───────── PAGE WRAPPER ───────── */
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+
+  /* ───────── ARTICLE HEADER (dark, matching PS article) ───────── */
+  .article-hero {
+    background: linear-gradient(135deg, #1a2332 0%, #2d4a6f 100%);
+    color: #fff;
+    padding: 32px 40px 28px;
+  }
+  .article-hero h1 {
+    margin: 0 0 10px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    line-height: 1.25;
+    color: #fff;
+  }
+  .article-hero .hero-sub {
+    font-size: 14px;
+    opacity: 0.85;
+    line-height: 1.55;
+    max-width: 860px;
+  }
+  .hero-meta {
+    margin-top: 14px;
+    font-size: 13px;
+    opacity: 0.85;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .hero-meta span { display: flex; align-items: center; gap: 5px; }
+  .badge-hero {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .article-tags-hero {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .tag-hero {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.9);
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+
+  /* ───────── TAGS SECTION ───────── */
+  .tags-section {
+    padding: 14px 40px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
+  }
+  .tags-label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-right: 4px; }
+  .tag {
+    display: inline-block;
+    background: #e8f4fd;
+    color: #0078d4;
+    border: 1px solid #bee3f8;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11.5px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .tag:hover { background: #d0e8f7; }
+  .tag.purple { background: #EDE9FE; color: #6D28D9; border-color: #C4B5FD; }
+  .tag.teal   { background: #CFFAFE; color: #0E7490; border-color: #A5F3FC; }
+
+  /* ───────── LAYOUT ───────── */
+  .content {
+    padding: 28px 40px 40px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 48px;
+  }
+  .article { min-width: 0; }
+
+  /* ───────── TL;DR BOX ───────── */
+  .tldr {
+    background: linear-gradient(135deg, var(--accent-light), #EDE9FE);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin: 0 0 28px;
+  }
+  .tldr-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--accent-dark);
+    margin-bottom: 10px;
+  }
+  .tldr p { margin: 0; color: var(--text); font-size: 15px; line-height: 1.65; }
+
+  /* ───────── TYPOGRAPHY ───────── */
+  .article h2 {
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.2px;
+    color: var(--text);
+    margin: 44px 0 14px;
+    padding-top: 12px;
+    scroll-margin-top: 20px;
+  }
+  .article h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 28px 0 10px;
+    scroll-margin-top: 20px;
+  }
+  .article p { margin-bottom: 14px; color: var(--text); font-size: 15px; }
+  .article p strong { color: var(--text); font-weight: 600; }
+  .article ul, .article ol { margin: 0 0 14px 24px; font-size: 15px; }
+  .article li { margin-bottom: 5px; }
+  .article a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s; }
+  .article a:hover { border-bottom-color: var(--accent); }
+  .article code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: var(--bg-soft);
+    color: var(--purple);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+  }
+
+  /* ───────── CALLOUT ───────── */
+  .callout {
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin: 20px 0;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .callout-icon { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
+  .callout.info    { background: var(--accent-light); border-left: 4px solid var(--accent); }
+  .callout.warn    { background: var(--warning-bg);  border-left: 4px solid var(--warning); }
+  .callout.danger  { background: var(--danger-bg);   border-left: 4px solid var(--danger); }
+  .callout.success { background: var(--success-bg);  border-left: 4px solid var(--success); }
+  .callout-title { font-weight: 700; margin-bottom: 4px; font-size: 13.5px; }
+  .callout.info .callout-title    { color: var(--accent-dark); }
+  .callout.warn .callout-title    { color: var(--warning); }
+  .callout.danger .callout-title  { color: var(--danger); }
+  .callout.success .callout-title { color: var(--success); }
+
+  /* ───────── CODE BLOCKS ───────── */
+  .code-block {
+    background: var(--bg-code);
+    border-radius: var(--radius);
+    margin: 16px 0;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    position: relative;
+  }
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 11.5px;
+    color: #94A3B8;
+  }
+  .code-lang { font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; font-size: 10.5px; }
+  .code-block pre { padding: 14px 18px; overflow-x: auto; color: var(--code-text); margin: 0; }
+  .code-block .k { color: var(--code-keyword); }
+  .code-block .s { color: var(--code-string); }
+  .code-block .c { color: var(--code-comment); font-style: italic; }
+  .code-block .n { color: var(--code-number); }
+  .code-block .f { color: var(--code-fn); }
+  .code-block .v { color: #C4B5FD; }
+
+  /* ───────── TABLES ───────── */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin: 16px 0;
+    box-shadow: var(--shadow);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; background: var(--bg); table-layout: fixed; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--border-light); vertical-align: top; overflow-wrap: break-word; word-break: break-word; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #f7fafc; }
+  th { background: #f7fafc; font-weight: 600; color: #718096; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); }
+  tbody tr:hover { background: var(--bg-soft); }
+  td code { font-size: 12px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+  .badge.ok    { background: var(--success-bg); color: var(--success); }
+  .badge.warn  { background: var(--warning-bg); color: var(--warning); }
+  .badge.no    { background: var(--danger-bg); color: var(--danger); }
+  .badge.neut  { background: var(--bg-soft); color: var(--text-muted); border: 1px solid var(--border); }
+
+  /* ───────── DIAGRAM ───────── */
+  .diagram {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    margin: 20px 0;
+  }
+  .flow-row {
+    display: grid;
+    grid-template-columns: 1fr 56px 1fr 56px 1fr;
+    align-items: center;
+    gap: 0;
+  }
+  .flow-node {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 14px;
+    text-align: center;
+    font-size: 13px;
+    box-shadow: var(--shadow);
+  }
+  .flow-node.cloud  { border-color: var(--accent);  background: linear-gradient(135deg, rgba(37,99,235,0.05), rgba(37,99,235,0.01)); }
+  .flow-node.bridge { border-color: var(--purple);  background: linear-gradient(135deg, rgba(124,58,237,0.06), rgba(124,58,237,0.01)); }
+  .flow-node.ad     { border-color: var(--teal);    background: linear-gradient(135deg, rgba(8,145,178,0.05), rgba(8,145,178,0.01)); }
+  .flow-node-icon { width: 30px; height: 30px; margin: 0 auto 8px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+  .flow-node.cloud  .flow-node-icon { background: var(--accent);  color: white; }
+  .flow-node.bridge .flow-node-icon { background: var(--purple);  color: white; }
+  .flow-node.ad     .flow-node-icon { background: var(--teal);    color: white; }
+  .flow-node-icon svg { width: 16px; height: 16px; }
+  .flow-node-title { font-weight: 700; font-size: 13px; color: var(--text); margin-bottom: 4px; }
+  .flow-node-sub   { font-size: 11.5px; color: var(--text-subtle); line-height: 1.4; }
+  .flow-arrow { text-align: center; color: var(--text-subtle); font-size: 20px; }
+  .flow-arrow-label { font-size: 10px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; margin-top: 4px; }
+
+  /* ───────── STEPS ───────── */
+  .steps { counter-reset: step; margin: 20px 0; }
+  .step {
+    position: relative;
+    padding-left: 56px;
+    padding-bottom: 26px;
+    border-left: 2px solid var(--border);
+    margin-left: 16px;
+  }
+  .step:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .step::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: -17px;
+    top: -2px;
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    box-shadow: var(--shadow-md);
+  }
+  .step h3 { margin-top: 0; }
+
+  /* ───────── TOC SIDEBAR ───────── */
+  .toc { position: sticky; top: 20px; align-self: start; max-height: calc(100vh - 40px); overflow-y: auto; }
+  .toc-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #718096; margin-bottom: 12px; }
+  .toc ol { list-style: none; margin: 0; padding: 0; }
+  .toc ol ol { margin-left: 12px; margin-top: 3px; }
+  .toc li { margin-bottom: 5px; }
+  .toc a {
+    color: #718096;
+    text-decoration: none;
+    font-size: 12.5px;
+    line-height: 1.45;
+    display: block;
+    padding: 3px 0 3px 10px;
+    margin-left: -12px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .toc a:hover, .toc a.active { color: var(--accent); border-left-color: var(--accent); }
+
+  /* ───────── AUTHOR CARD ───────── */
+  .article-footer { margin-top: 48px; padding-top: 28px; border-top: 1px solid var(--border); }
+  .author-card { display: flex; align-items: center; gap: 14px; padding: 18px; background: var(--bg-soft); border-radius: var(--radius); border: 1px solid var(--border-light); }
+  .author-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--purple)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 19px; flex-shrink: 0; }
+  .author-name { font-weight: 700; color: var(--text); margin-bottom: 2px; font-size: 15px; }
+  .author-role { font-size: 12.5px; color: var(--text-subtle); }
+
+  /* ───────── SITE FOOTER (matches powershell-5-vs-7-comparison.html) ───────── */
+  .site-footer {
+    background: #1a2332;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 20px 40px;
+    text-align: center;
+    font-size: 12px;
+    max-width: 1180px;
+    margin: 0 auto;
+    border-radius: 0 0 10px 10px;
+  }
+  .site-footer a { color: rgba(255, 255, 255, 0.9); text-decoration: none; }
+  .site-footer a:hover { color: #fff; }
+
+  /* ───────── RESPONSIVE ───────── */
+  @media (max-width: 900px) {
+    .content { grid-template-columns: 1fr; gap: 0; padding: 20px; }
+    .toc { display: none; }
+    .article-hero { padding: 24px 20px 20px; }
+    .article-hero h1 { font-size: 21px; }
+    .tags-section { padding: 12px 20px 0; }
+    .flow-row { grid-template-columns: 1fr; gap: 10px; }
+    .flow-arrow { transform: rotate(90deg); }
+    .site-nav { padding: 10px 20px; justify-content: center; }
+    .site-footer { padding: 20px; }
+  }
+  @media print {
+    .site-nav, .toc, .site-footer { display: none; }
+    body { background: #fff; }
+    .page { box-shadow: none; border-radius: 0; max-width: none; }
+    .code-block { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Site Navigation -->
+<nav class="site-nav">
+    <a href="../index.html">Home</a>
+    <a href="../cv.html">CV</a>
+    <a href="index.html">Knowledge Base</a>
+    <a href="../contato.html">Contact</a>
+    <button class="dl-btn" onclick="downloadPage()">Download Page</button>
+</nav>
+
+<article class="page" itemscope itemtype="https://schema.org/TechArticle">
+  <meta itemprop="datePublished" content="2026-05-04">
+  <meta itemprop="dateModified" content="2026-05-04">
+  <meta itemprop="version" content="1.0">
+  <meta itemprop="keywords" content="Entra ID, Active Directory, hybrid identity, soft match, hard match, ImmutableId, PowerShell, Entra Connect">
+
+  <header class="article-hero">
+    <h1 itemprop="headline">Cloud-to-AD User Bridge</h1>
+    <div class="hero-sub">Importing Microsoft Entra ID Users into On-Premises Active Directory — soft-match &amp; hard-match strategies, idempotent PowerShell, production-ready runbook</div>
+    <div class="hero-meta">
+      <span><span class="badge-hero">v1.0</span></span>
+      <span><span class="badge-hero">Published May 2026</span></span>
+      <span><span class="badge-hero">Hybrid Identity Series</span></span>
+      <span>14 min read</span>
+    </div>
+    <div class="article-tags-hero">
+      <span class="tag-hero">Identity</span>
+      <span class="tag-hero">Microsoft Entra ID</span>
+      <span class="tag-hero">Active Directory</span>
+      <span class="tag-hero">PowerShell</span>
+      <span class="tag-hero">Entra Connect</span>
+    </div>
+  </header>
+
+  <!-- Tags for indexing and AI consumption -->
+  <div class="tags-section" aria-label="Document tags">
+    <span class="tags-label">Tags</span>
+    <a class="tag" href="#why-this-exists">hybrid-identity</a>
+    <a class="tag" href="#how-sync-flows">entra-connect</a>
+    <a class="tag purple" href="#soft-vs-hard-match">soft-match</a>
+    <a class="tag purple" href="#soft-vs-hard-match">hard-match</a>
+    <a class="tag" href="#soft-vs-hard-match">immutable-id</a>
+    <a class="tag teal" href="#step-by-step">powershell</a>
+    <a class="tag teal" href="#step-by-step">active-directory</a>
+    <a class="tag" href="#step-by-step">ms-graph-powershell</a>
+    <a class="tag" href="#production-mode">idempotent</a>
+    <a class="tag" href="#common-pitfalls">troubleshooting</a>
+  </div>
+
+  <div class="content">
+
+    <!-- ════════ ARTICLE ════════ -->
+    <div class="article">
+
+      <!-- TL;DR -->
+      <div class="tldr">
+        <div class="tldr-label">TL;DR</div>
+        <p>Microsoft Entra Connect synchronizes <strong>AD → Entra ID</strong> natively, but does <strong>not</strong> write users from the cloud back into the on-premises directory. When you start cloud-first and later need users in AD (for hybrid Entra Kerberos, file shares, legacy apps), you need a controlled <strong>bridge</strong>: export cloud users, transform to AD attributes, create or update AD objects with consistent UPN / mail / proxyAddresses, then run a delta sync. Done correctly this triggers a <em>soft match</em>; done sloppily it produces duplicate identities.</p>
+      </div>
+
+      <!-- ═══ SECTION 1: WHY ═══ -->
+      <h2 id="why-this-exists">1. Why this scenario exists</h2>
+      <p>Two patterns produce a population of <strong>cloud-only</strong> users that the business later needs to access on-premises resources:</p>
+      <ul>
+        <li><strong>Cloud-first onboarding.</strong> A new tenant is provisioned, users are created directly in Entra ID, and only later does the team integrate an existing on-premises AD.</li>
+        <li><strong>Legacy resource surfaces.</strong> A file server, a Kerberos-bound application, or an Azure Files share using AD DS authentication suddenly needs cloud-only users to authenticate. With <strong>Microsoft Entra Kerberos for Azure Files</strong>, hybrid identities are GA — cloud-only identities are still in preview as of May 2026.</li>
+      </ul>
+      <p>In both cases you need cloud users to exist as <strong>hybrid identities</strong>: present in AD, synchronized to Entra ID, with both objects linked by the same <code>ImmutableId</code>.</p>
+
+      <!-- ═══ SECTION 2: HOW SYNC FLOWS ═══ -->
+      <h2 id="how-sync-flows">2. How Entra Connect actually flows</h2>
+      <p>Before fixing the gap, you need to be precise about which direction the synchronization service is willing to move data in.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Scenario</th><th>Direction</th><th>Default Behavior</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>User created in on-prem AD</td><td>AD → Entra ID</td><td><span class="badge ok">Synced</span> Becomes a hybrid identity</td></tr>
+            <tr><td>User created directly in Entra ID</td><td>Entra ID → AD</td><td><span class="badge no">Not synced</span> Remains cloud-only forever</td></tr>
+            <tr><td>AD password changed</td><td>AD → Entra ID</td><td><span class="badge ok">Replicated</span> Via Password Hash Sync</td></tr>
+            <tr><td>Self-service password reset in cloud</td><td>Entra ID → AD</td><td><span class="badge warn">Opt-in</span> Requires Password Writeback</td></tr>
+            <tr><td>M365 group created in cloud</td><td>Entra ID → AD</td><td><span class="badge warn">Opt-in</span> Requires Group Writeback</td></tr>
+            <tr><td>Device registered as Entra-joined</td><td>Entra ID → AD</td><td><span class="badge warn">Opt-in</span> Requires Device Writeback</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div>
+          <div class="callout-title">There is no "User Writeback" feature for cloud-only users</div>
+          Several writeback features exist (password, group, device) but none of them cover the case of a user that was born in the cloud. That has to be done by you.
+        </div>
+      </div>
+
+      <!-- ═══ SECTION 3: BRIDGE OVERVIEW ═══ -->
+      <h2 id="bridge-overview">3. The bridge — visual overview</h2>
+      <p>The bridge is a deliberate, auditable workflow. The cloud is read-only as a source, AD is the write target, and Entra Connect closes the loop by promoting your AD changes back into Entra ID and matching the new on-prem object to the existing cloud object.</p>
+
+      <div class="diagram">
+        <div class="flow-row">
+          <div class="flow-node cloud">
+            <div class="flow-node-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+            </div>
+            <div class="flow-node-title">Microsoft Entra ID</div>
+            <div class="flow-node-sub">Cloud-only users (source)</div>
+          </div>
+          <div class="flow-arrow">→<div class="flow-arrow-label">Export</div></div>
+          <div class="flow-node bridge">
+            <div class="flow-node-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
+            <div class="flow-node-title">Bridge Process</div>
+            <div class="flow-node-sub">CSV transform · soft/hard match · PowerShell</div>
+          </div>
+          <div class="flow-arrow">→<div class="flow-arrow-label">Create / Update</div></div>
+          <div class="flow-node ad">
+            <div class="flow-node-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5"/><path d="M3 12a9 3 0 0018 0"/></svg>
+            </div>
+            <div class="flow-node-title">On-Premises AD</div>
+            <div class="flow-node-sub">Authoritative directory</div>
+          </div>
+        </div>
+        <div style="text-align: center; margin-top: 18px; font-size: 13px; color: var(--text-subtle);">
+          <strong>Then:</strong> Entra Connect runs delta sync &nbsp;→&nbsp; new AD object soft-matches the existing cloud user &nbsp;→&nbsp; identity becomes hybrid.
+        </div>
+      </div>
+
+      <!-- ═══ SECTION 4: SOFT VS HARD MATCH ═══ -->
+      <h2 id="soft-vs-hard-match">4. Soft match vs. hard match</h2>
+      <p>The matching engine in Entra Connect tries to recognize that "this new AD user" and "this existing Entra user" are the same person. There are two mechanisms.</p>
+
+      <h3 id="soft-match">Soft match — attribute-based</h3>
+      <p>Entra Connect matches on <strong>primary SMTP / mail attribute</strong> (case-insensitive). If <code>mail</code> in AD equals <code>mail</code> in Entra, the objects are linked automatically. UPN is used as a secondary signal but mail is the strongest deterministic key.</p>
+      <p><strong>When to use:</strong> default. Always try soft match first — it requires no special tooling and is fully reversible.</p>
+
+      <h3 id="hard-match">Hard match — ImmutableId</h3>
+      <p>You explicitly set the cloud user's <code>ImmutableId</code> property to a base64-encoded value derived from the AD object's <code>objectGUID</code>. Entra Connect will then bind these two objects together regardless of mail/UPN.</p>
+      <p><strong>When to use:</strong> when soft match fails, when mail attributes diverge, or when you need deterministic linkage for audit purposes. Hard match requires PowerShell on the cloud side and is harder to undo.</p>
+
+      <div class="callout info">
+        <svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <div>
+          <div class="callout-title">The duplication risk</div>
+          If you create an AD user with a mismatched mail/UPN <em>and</em> Entra Connect picks it up before you fix it, you end up with two objects in Entra (the original cloud-only and a new synced one). Cleaning this up is painful — always validate attributes <strong>before</strong> running delta sync.
+        </div>
+      </div>
+
+      <!-- ═══ SECTION 5: STEP BY STEP ═══ -->
+      <h2 id="step-by-step">5. Runbook — step by step</h2>
+      <p>The process below assumes you have a tenant where some users were created cloud-only, an on-prem AD with Entra Connect installed, and a target OU + group structure already designed.</p>
+
+      <div class="steps">
+
+        <!-- STEP 1 -->
+        <div class="step">
+          <h3>Export cloud-only users from Entra ID</h3>
+          <p>Pull every user where <code>onPremisesSyncEnabled</code> is null/false. Microsoft Graph PowerShell is the cleanest path.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">PowerShell</span><span>export-cloud-users.ps1</span></div>
+<pre><span class="c"># Connect with the User.Read.All scope</span>
+<span class="f">Connect-MgGraph</span> <span class="k">-Scopes</span> <span class="s">"User.Read.All"</span>
+
+<span class="c"># Export every user that is NOT on-premises synced</span>
+<span class="f">Get-MgUser</span> <span class="k">-All</span> <span class="k">-Property</span> <span class="s">"Id,DisplayName,UserPrincipalName,Mail,UserType,OnPremisesSyncEnabled,Identities,CompanyName,CreationType"</span> <span class="k">|</span>
+    <span class="f">Where-Object</span> { <span class="v">$_</span>.OnPremisesSyncEnabled <span class="k">-ne</span> <span class="v">$true</span> } <span class="k">|</span>
+    <span class="f">Select-Object</span> Id, DisplayName, UserPrincipalName, UserType, OnPremisesSyncEnabled,
+        @{N=<span class="s">"Identities"</span>;E={<span class="v">$_</span>.Identities <span class="k">|</span> <span class="f">ConvertTo-Json</span> <span class="k">-Compress</span>}}, CompanyName, CreationType <span class="k">|</span>
+    <span class="f">Export-Csv</span> <span class="k">-Path</span> <span class="s">".\exportUsers_$(Get-Date -Format 'yyyy-M-d').csv"</span> <span class="k">-NoTypeInformation</span> <span class="k">-Encoding</span> UTF8</pre>
+          </div>
+        </div>
+
+        <!-- STEP 2 -->
+        <div class="step">
+          <h3>Transform the CSV to AD-ready format</h3>
+          <p>Re-shape the export into the columns AD needs: <code>UserPrincipalName</code> with the on-prem domain suffix, <code>sAMAccountName</code>, <code>GivenName</code>, <code>Surname</code>, <code>Department</code>, plus <code>CloudObjectId</code> for the audit trail.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">CSV</span><span>exportUsers_*-for-ad-import.csv</span></div>
+<pre><span class="c">"UserPrincipalName","DisplayName","GivenName","Surname","Department","sAMAccountName","CloudObjectId","CloudUPN","UserType"</span>
+<span class="s">"ana.costa@corp.local"</span>,<span class="s">"Ana Costa"</span>,<span class="s">""</span>,<span class="s">"Ana Costa"</span>,<span class="s">"HR"</span>,<span class="s">"ana.costa"</span>,<span class="s">"d0c8...a9"</span>,<span class="s">"ana.costa@tenant.onmicrosoft.com"</span>,<span class="s">"Member"</span>
+<span class="s">"bruno.reis@corp.local"</span>,<span class="s">"Bruno Reis"</span>,<span class="s">""</span>,<span class="s">"Bruno Reis"</span>,<span class="s">"IT"</span>,<span class="s">"bruno.reis"</span>,<span class="s">"61f3...80"</span>,<span class="s">"bruno.reis@tenant.onmicrosoft.com"</span>,<span class="s">"Member"</span>
+<span class="s">"clara.lima@corp.local"</span>,<span class="s">"Clara Lima"</span>,<span class="s">""</span>,<span class="s">"Clara Lima"</span>,<span class="s">"Sales"</span>,<span class="s">"clara.lima"</span>,<span class="s">"a01b...4f"</span>,<span class="s">"clara.lima@tenant.onmicrosoft.com"</span>,<span class="s">"Member"</span></pre>
+          </div>
+          <p>The <strong>UPN suffix change</strong> (from <code>tenant.onmicrosoft.com</code> to your verified custom domain like <code>corp.local</code>) is the most important transformation. The verified domain must be added as an Entra ID custom domain <em>before</em> the sync runs.</p>
+        </div>
+
+        <!-- STEP 3 -->
+        <div class="step">
+          <h3>Pre-flight match report — detect duplicates before writing</h3>
+          <p>Run an <strong>idempotent dry-run</strong> that classifies each row as <em>create</em>, <em>update</em>, <em>skip</em>, or <em>conflict</em>. Never skip this step.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">PowerShell</span><span>match-report.ps1</span></div>
+<pre><span class="c"># Read the AD-import CSV produced in step 2</span>
+<span class="v">$rows</span> = <span class="f">Import-Csv</span> <span class="s">".\exportUsers_2026-5-4-for-ad-import.csv"</span>
+
+<span class="v">$report</span> = <span class="f">foreach</span> (<span class="v">$r</span> <span class="k">in</span> <span class="v">$rows</span>) {
+    <span class="v">$ad</span> = <span class="f">Get-ADUser</span> <span class="k">-Filter</span> <span class="s">"sAMAccountName -eq '$($r.sAMAccountName)'"</span> <span class="k">-Properties</span> mail, userPrincipalName, memberOf <span class="k">-ErrorAction</span> SilentlyContinue
+    [PSCustomObject]@{
+        CloudUPN       = <span class="v">$r</span>.CloudUPN
+        LocalUPN       = <span class="v">$r</span>.UserPrincipalName
+        sAMAccountName = <span class="v">$r</span>.sAMAccountName
+        ExistsInAD     = [bool]<span class="v">$ad</span>
+        Department     = <span class="v">$r</span>.Department
+        Groups         = <span class="s">"GG-$($r.Department)-FS"</span>
+        Dn             = <span class="v">$ad</span>.DistinguishedName
+    }
+}
+<span class="v">$report</span> <span class="k">|</span> <span class="f">Export-Csv</span> <span class="s">".\exportUsers_2026-5-4-match-report.csv"</span> <span class="k">-NoTypeInformation</span></pre>
+          </div>
+          <p>The output gives the operator a per-user verdict so creation and updates are explicit decisions, not side effects:</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>CloudUPN</th><th>LocalUPN</th><th>sAMAccountName</th><th>Exists in AD</th><th>Action</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>ana.costa@tenant.onmicrosoft.com</td><td>ana.costa@corp.local</td><td>ana.costa</td><td><span class="badge ok">True</span></td><td>Update + group add</td></tr>
+                <tr><td>bruno.reis@tenant.onmicrosoft.com</td><td>bruno.reis@corp.local</td><td>bruno.reis</td><td><span class="badge no">False</span></td><td>Create</td></tr>
+                <tr><td>clara.lima@tenant.onmicrosoft.com</td><td>clara.lima@corp.local</td><td>clara.lima</td><td><span class="badge no">False</span></td><td>Create</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- STEP 4 -->
+        <div class="step">
+          <h3>Create or update AD users (idempotent)</h3>
+          <p>The script must be safe to run multiple times. Use <code>Set-ADUser</code> for existing objects and <code>New-ADUser</code> only when the dry-run flagged the row as <em>create</em>.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">PowerShell</span><span>provision-ad-users.ps1</span></div>
+<pre><span class="v">$rows</span>   = <span class="f">Import-Csv</span> <span class="s">".\exportUsers_2026-5-4-for-ad-import.csv"</span>
+<span class="v">$ouPath</span>  = <span class="s">"OU=CloudBridged,OU=Users,DC=corp,DC=local"</span>
+<span class="v">$tempPwd</span> = <span class="f">ConvertTo-SecureString</span> <span class="s">"TempP@ssw0rd!ChangeMe"</span> <span class="k">-AsPlainText</span> <span class="k">-Force</span>
+
+<span class="f">foreach</span> (<span class="v">$r</span> <span class="k">in</span> <span class="v">$rows</span>) {
+    <span class="v">$existing</span> = <span class="f">Get-ADUser</span> <span class="k">-Filter</span> <span class="s">"sAMAccountName -eq '$($r.sAMAccountName)'"</span> <span class="k">-ErrorAction</span> SilentlyContinue
+
+    <span class="f">if</span> (<span class="k">-not</span> <span class="v">$existing</span>) {
+        <span class="f">New-ADUser</span> <span class="k">`</span>
+            <span class="k">-Name</span>              <span class="v">$r</span>.DisplayName <span class="k">`</span>
+            <span class="k">-DisplayName</span>       <span class="v">$r</span>.DisplayName <span class="k">`</span>
+            <span class="k">-GivenName</span>         <span class="v">$r</span>.GivenName <span class="k">`</span>
+            <span class="k">-Surname</span>           <span class="v">$r</span>.Surname <span class="k">`</span>
+            <span class="k">-SamAccountName</span>    <span class="v">$r</span>.sAMAccountName <span class="k">`</span>
+            <span class="k">-UserPrincipalName</span> <span class="v">$r</span>.UserPrincipalName <span class="k">`</span>
+            <span class="k">-EmailAddress</span>      <span class="v">$r</span>.UserPrincipalName <span class="k">`</span>
+            <span class="k">-Department</span>        <span class="v">$r</span>.Department <span class="k">`</span>
+            <span class="k">-Path</span>              <span class="v">$ouPath</span> <span class="k">`</span>
+            <span class="k">-AccountPassword</span>   <span class="v">$tempPwd</span> <span class="k">`</span>
+            <span class="k">-Enabled</span>           <span class="v">$true</span> <span class="k">`</span>
+            <span class="k">-ChangePasswordAtLogon</span> <span class="v">$true</span>
+        <span class="f">Write-Host</span> <span class="s">"Created $($r.UserPrincipalName)"</span> <span class="k">-ForegroundColor</span> Green
+    } <span class="f">else</span> {
+        <span class="f">Set-ADUser</span> <span class="k">-Identity</span> <span class="v">$existing</span> <span class="k">`</span>
+            <span class="k">-UserPrincipalName</span> <span class="v">$r</span>.UserPrincipalName <span class="k">`</span>
+            <span class="k">-EmailAddress</span>      <span class="v">$r</span>.UserPrincipalName <span class="k">`</span>
+            <span class="k">-Department</span>        <span class="v">$r</span>.Department
+        <span class="f">Write-Host</span> <span class="s">"Updated $($r.UserPrincipalName)"</span> <span class="k">-ForegroundColor</span> Yellow
+    }
+}</pre>
+          </div>
+        </div>
+
+        <!-- STEP 5 -->
+        <div class="step">
+          <h3>Add users to AD groups by department</h3>
+          <p>File-share permissions, Conditional Access groups, and Entra Kerberos RBAC roles all hang off AD groups. Map each user to the group(s) that match their department.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">PowerShell</span><span>add-to-groups.ps1</span></div>
+<pre><span class="v">$groupMap</span> = @{
+    <span class="s">"HR"</span>    = <span class="s">"GG-HR-FS"</span>
+    <span class="s">"IT"</span>    = <span class="s">"GG-IT-FS"</span>
+    <span class="s">"Sales"</span> = <span class="s">"GG-Sales-FS"</span>
+}
+
+<span class="f">foreach</span> (<span class="v">$r</span> <span class="k">in</span> <span class="v">$rows</span>) {
+    <span class="v">$group</span> = <span class="v">$groupMap</span>[<span class="v">$r</span>.Department]
+    <span class="f">if</span> (<span class="v">$group</span>) {
+        <span class="f">Add-ADGroupMember</span> <span class="k">-Identity</span> <span class="v">$group</span> <span class="k">-Members</span> <span class="v">$r</span>.sAMAccountName <span class="k">-ErrorAction</span> SilentlyContinue
+    }
+}</pre>
+          </div>
+        </div>
+
+        <!-- STEP 6 -->
+        <div class="step">
+          <h3>Trigger an Entra Connect delta sync</h3>
+          <p>Run on the Entra Connect server. Delta is fast (seconds to a minute).</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">PowerShell</span><span>trigger-sync.ps1</span></div>
+<pre><span class="f">Import-Module</span> ADSync
+<span class="f">Start-ADSyncSyncCycle</span> <span class="k">-PolicyType</span> Delta</pre>
+          </div>
+        </div>
+
+        <!-- STEP 7 -->
+        <div class="step">
+          <h3>Validate the match in Entra ID</h3>
+          <p>Each previously cloud-only user should now show <code>onPremisesSyncEnabled = True</code> and have an <code>onPremisesImmutableId</code> populated.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">PowerShell</span><span>validate-match.ps1</span></div>
+<pre><span class="f">Connect-MgGraph</span> <span class="k">-Scopes</span> <span class="s">"User.Read.All"</span>
+
+<span class="v">$rows</span> = <span class="f">Import-Csv</span> <span class="s">".\exportUsers_2026-5-4-for-ad-import.csv"</span>
+<span class="f">foreach</span> (<span class="v">$r</span> <span class="k">in</span> <span class="v">$rows</span>) {
+    <span class="v">$u</span> = <span class="f">Get-MgUser</span> <span class="k">-UserId</span> <span class="v">$r</span>.CloudObjectId <span class="k">-Property</span> OnPremisesSyncEnabled,OnPremisesImmutableId,UserPrincipalName
+    [PSCustomObject]@{
+        UPN     = <span class="v">$u</span>.UserPrincipalName
+        Synced  = <span class="v">$u</span>.OnPremisesSyncEnabled
+        Anchor  = <span class="v">$u</span>.OnPremisesImmutableId
+    }
+}</pre>
+          </div>
+          <div class="callout success">
+            <svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+            <div>
+              <div class="callout-title">Success looks like this</div>
+              Every row in the validation output shows <code>Synced = True</code> and a non-empty <code>Anchor</code>. The cloud user and the AD user are now bound — soft match worked.
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 8 -->
+        <div class="step">
+          <h3>Fallback — hard match by ImmutableId (only if soft match fails)</h3>
+          <p>If a row failed to match (typically because <code>mail</code> attributes diverge), set the <code>ImmutableId</code> explicitly. Convert the AD <code>objectGUID</code> to base64 first.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">PowerShell</span><span>hard-match.ps1</span></div>
+<pre><span class="v">$adUser</span>      = <span class="f">Get-ADUser</span> <span class="s">"ana.costa"</span> <span class="k">-Properties</span> objectGUID
+<span class="v">$immutable</span>   = [Convert]::ToBase64String(<span class="v">$adUser</span>.objectGUID.ToByteArray())
+<span class="v">$cloudUserId</span> = <span class="s">"d0c821f6-4609-42c0-aadf-9571dd810da9"</span>
+
+<span class="f">Update-MgUser</span> <span class="k">-UserId</span> <span class="v">$cloudUserId</span> <span class="k">-OnPremisesImmutableId</span> <span class="v">$immutable</span></pre>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ═══ SECTION 6: PRODUCTION MODE ═══ -->
+      <h2 id="production-mode">6. Going from lab to production</h2>
+      <p>The lab version above is fine for a one-shot bootstrap. To run this as an ongoing operation, you need three additional properties.</p>
+
+      <h3 id="match-policy">6.1 An explicit match policy</h3>
+      <p>Document the rules in a single page that ops can follow without reading scripts:</p>
+      <ul>
+        <li><strong>Default</strong>: soft match by <code>mail</code>. UPN suffix must use a verified Entra ID custom domain.</li>
+        <li><strong>Fallback</strong>: hard match by <code>ImmutableId</code> only when an attribute conflict has been investigated and approved.</li>
+        <li><strong>Forbidden</strong>: creating an AD user with an unverified UPN suffix. This produces orphaned objects and breaks federation.</li>
+      </ul>
+
+      <h3 id="idempotent-script">6.2 An idempotent script with a duplication report</h3>
+      <p>Every run produces three artifacts:</p>
+      <ul>
+        <li><code>match-report.csv</code> — what would happen, written before any change.</li>
+        <li><code>execution-log.csv</code> — what actually happened, written after every operation.</li>
+        <li><code>conflicts.csv</code> — rows that were skipped because of attribute conflicts. Reviewed by ops before the next run.</li>
+      </ul>
+
+      <h3 id="scheduled-execution">6.3 Scheduled execution with manual approval gate</h3>
+      <p>A daily scheduled task on the Entra Connect server (or a dedicated jump box) runs the export and produces <code>match-report.csv</code>. The actual provisioning script runs <strong>only after a human approves</strong> the report — typically by moving the file to a <code>./approved/</code> folder. This prevents drift and surprise creates.</p>
+
+      <div class="callout info">
+        <svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <div>
+          <div class="callout-title">Treat the bridge as a temporary control</div>
+          If the long-term direction is "cloud-first identity", the bridge is a transitional pattern, not a destination. The endgame is removing the AD dependency entirely (e.g., Microsoft Entra Kerberos with cloud-only identities once GA).
+        </div>
+      </div>
+
+      <!-- ═══ SECTION 7: PITFALLS ═══ -->
+      <h2 id="common-pitfalls">7. Common pitfalls</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Symptom</th><th>Likely Cause</th><th>Fix</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Duplicate user appears in Entra ID after sync</td><td>UPN/mail mismatch, soft match couldn't bind</td><td>Stop sync, soft-delete the duplicate, fix attributes, hard match by <code>ImmutableId</code>, resync</td></tr>
+            <tr><td><code>onPremisesSyncEnabled</code> stays <code>null</code></td><td>AD object is in an OU not included in Entra Connect scope</td><td>Move the user to a synced OU, then run delta sync</td></tr>
+            <tr><td>UPN suffix appears as <code>tenant.onmicrosoft.com</code> after sync</td><td>Custom domain not verified or not added as UPN suffix in AD Domains and Trusts</td><td>Verify domain in Entra portal; add UPN suffix in AD; re-set UPN on user</td></tr>
+            <tr><td>Entra Kerberos for Azure Files denies access</td><td>User is still cloud-only OR Conditional Access requires MFA on the storage app</td><td>Verify hybrid sync; exclude the storage app from MFA Conditional Access policies</td></tr>
+            <tr><td>Group membership doesn't take effect for file shares</td><td>Token caching on the client</td><td>Sign user out / in, or run <code>klist purge</code> on the client</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ═══ SECTION 8: REFERENCES ═══ -->
+      <h2 id="references">8. References</h2>
+      <ul>
+        <li><a href="https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-syncservice-features" target="_blank" rel="noopener">Microsoft Entra Connect — sync service features</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-install-prerequisites" target="_blank" rel="noopener">Entra Connect prerequisites and supported topologies</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-fed-management" target="_blank" rel="noopener">Custom domain federation and UPN management</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/azure/storage/files/storage-files-identity-auth-hybrid-identities-enable" target="_blank" rel="noopener">Enable Microsoft Entra Kerberos for hybrid identities (Azure Files)</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/powershell/microsoftgraph/overview" target="_blank" rel="noopener">Microsoft Graph PowerShell SDK</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/powershell/module/activedirectory/" target="_blank" rel="noopener">Active Directory PowerShell module reference</a></li>
+      </ul>
+
+      <!-- Author -->
+      <div class="article-footer">
+        <div class="author-card">
+          <div class="author-avatar">JQ</div>
+          <div>
+            <div class="author-name">Jairo Queiroz</div>
+            <div class="author-role">Cloud Solution Architect — Azure, Identity &amp; Security</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ════════ TOC SIDEBAR ════════ -->
+    <aside class="toc">
+      <div class="toc-title">On this page</div>
+      <ol>
+        <li><a href="#why-this-exists">Why this scenario exists</a></li>
+        <li><a href="#how-sync-flows">How Entra Connect flows</a></li>
+        <li><a href="#bridge-overview">Bridge overview</a></li>
+        <li><a href="#soft-vs-hard-match">Soft vs. hard match</a>
+          <ol>
+            <li><a href="#soft-match">Soft match</a></li>
+            <li><a href="#hard-match">Hard match</a></li>
+          </ol>
+        </li>
+        <li><a href="#step-by-step">Runbook step by step</a></li>
+        <li><a href="#production-mode">Going to production</a>
+          <ol>
+            <li><a href="#match-policy">Match policy</a></li>
+            <li><a href="#idempotent-script">Idempotent script</a></li>
+            <li><a href="#scheduled-execution">Scheduled execution</a></li>
+          </ol>
+        </li>
+        <li><a href="#common-pitfalls">Common pitfalls</a></li>
+        <li><a href="#references">References</a></li>
+      </ol>
+    </aside>
+
+  </div>
+
+  <!-- Article-level footer (same pattern as PS article) -->
+  <footer style="padding: 16px 40px 24px; border-top: 1px solid #e2e8f0; background: #f7fafc;">
+    <div style="font-size: 11.5px; color: #2d3748; font-weight: 600; margin-bottom: 4px;">
+      <span>Document version 1.0 — Published: <time datetime="2026-05-04">May 4, 2026</time></span>
+    </div>
+    <div style="font-size: 11px; color: #718096;">
+      Cloud-to-AD User Bridge · Hybrid Identity Series · <a href="https://jairosqueiroz.github.io" style="color:#9ca3af">jairosqueiroz.github.io</a>
+    </div>
+  </footer>
+
+</article>
+
+<!-- Site Footer -->
+<div class="site-footer">
+    <a href="../index.html">&larr; Home</a> &middot;
+    <a href="index.html">Knowledge Base</a> &middot;
+    <a href="../cv.html">CV</a> &middot;
+    Jairo da Silva Queiroz
+</div>
+
+<script>
+// TOC active link tracking
+const headings = document.querySelectorAll('h2[id], h3[id]');
+const tocLinks = document.querySelectorAll('.toc a');
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            tocLinks.forEach(l => l.classList.remove('active'));
+            const active = document.querySelector(`.toc a[href="#${entry.target.id}"]`);
+            if (active) active.classList.add('active');
+        }
+    });
+}, { rootMargin: '-20px 0px -70% 0px' });
+headings.forEach(h => observer.observe(h));
+
+// Download page
+function downloadPage() {
+    var html = document.documentElement.outerHTML;
+    var blob = new Blob(['<!DOCTYPE html>\n' + html], { type: 'text/html' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = location.pathname.split('/').pop() || 'page.html';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
