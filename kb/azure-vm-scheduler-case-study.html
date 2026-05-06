@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: https://ogp.me/ns#">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azure VM Scheduler Case Study - Cost-Optimized Start/Stop with Azure Functions</title>
+<meta name="description" content="Case study: solve daily Azure VM shutdowns with scheduled start/stop using Azure Functions. Includes root cause, architecture, deployment runbook, and pricing comparison.">
+<meta name="keywords" content="Azure Functions, Azure VM, scheduling, cost optimization, automation, python, managed identity">
+<meta name="author" content="Jairo da Silva Queiroz">
+<meta name="robots" content="index, follow">
+<meta name="revised" content="2026-05-06">
+<link rel="canonical" href="https://jairosqueiroz.github.io/kb/azure-vm-scheduler-case-study.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Azure VM Scheduler Case Study - Cost-Optimized Start/Stop with Azure Functions">
+<meta property="og:description" content="From random daily shutdowns to predictable VM operations with Azure Functions timer triggers.">
+<meta property="og:url" content="https://jairosqueiroz.github.io/kb/azure-vm-scheduler-case-study.html">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2026-05-06">
+<meta property="article:modified_time" content="2026-05-06">
+<meta property="article:tag" content="Azure Functions">
+<meta property="article:tag" content="Azure VM">
+<meta property="article:tag" content="Cost Optimization">
+<meta property="article:tag" content="Automation">
+<style>
+:root {
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
+  --text: #0f172a;
+  --muted: #475569;
+  --border: #e2e8f0;
+  --bg: #f7fafc;
+  --card: #ffffff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--bg);
+}
+.site-nav {
+  background: #1a2332;
+  padding: 10px 28px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.site-nav a { color: rgba(255,255,255,0.9); font-size: 13px; text-decoration: none; }
+.site-nav a:hover { color: #ffffff; }
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  background: var(--card);
+  box-shadow: 0 4px 18px rgba(15,23,42,0.08);
+}
+.article-hero {
+  background: linear-gradient(135deg, #1a2332 0%, #2d4a6f 100%);
+  color: #ffffff;
+  padding: 30px 34px;
+}
+.article-hero h1 { font-size: 29px; line-height: 1.25; margin-bottom: 10px; }
+.hero-sub { font-size: 14px; opacity: 0.9; max-width: 900px; }
+.hero-meta {
+  margin-top: 12px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  opacity: 0.9;
+}
+.tags {
+  padding: 14px 34px 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tag {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: #334155;
+}
+.content {
+  padding: 24px 34px 42px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 36px;
+}
+.tldr {
+  background: linear-gradient(135deg, var(--accent-soft), #ede9fe);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 24px;
+}
+.tldr-label {
+  font-size: 11px;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #1d4ed8;
+  margin-bottom: 8px;
+}
+h2 {
+  margin-top: 28px;
+  margin-bottom: 10px;
+  font-size: 22px;
+  line-height: 1.3;
+}
+h3 {
+  margin-top: 20px;
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+p, li { color: var(--text); font-size: 15px; }
+ul, ol { margin: 10px 0 10px 22px; }
+code {
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
+pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+pre code {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 8px;
+  text-align: left;
+}
+th { background: #f8fafc; }
+.aside {
+  position: sticky;
+  top: 18px;
+  align-self: start;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  background: #fcfdff;
+}
+.aside h4 { font-size: 14px; margin-bottom: 8px; }
+.aside a { display: block; color: #2563eb; text-decoration: none; font-size: 13px; margin-bottom: 6px; }
+.aside a:hover { text-decoration: underline; }
+.footer {
+  border-top: 1px solid var(--border);
+  margin-top: 30px;
+  padding-top: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (max-width: 920px) {
+  .content { grid-template-columns: 1fr; }
+  .aside { position: static; }
+}
+</style>
+</head>
+<body>
+<nav class="site-nav">
+  <a href="https://jairosqueiroz.github.io/index.html">Home</a>
+  <a href="https://jairosqueiroz.github.io/kb/">Knowledge Base</a>
+  <a href="https://jairosqueiroz.github.io/cv.html">CV</a>
+  <a href="https://github.com/jairosqueiroz">GitHub</a>
+</nav>
+
+<div class="page">
+  <header class="article-hero">
+    <h1>Azure VM Scheduler Case Study</h1>
+    <p class="hero-sub">Solving daily unplanned VM shutdowns by switching to intentional start/stop scheduling with Azure Functions timer triggers and managed identity.</p>
+    <div class="hero-meta">
+      <span>Published: May 2026</span>
+      <span>Version: v1.0</span>
+      <span>Reading time: 10 min</span>
+      <span>Region: East US / Brazil South</span>
+    </div>
+  </header>
+
+  <section class="tags">
+    <span class="tag">Azure VM</span>
+    <span class="tag">Azure Functions</span>
+    <span class="tag">Cost Optimization</span>
+    <span class="tag">Automation</span>
+    <span class="tag">Python</span>
+  </section>
+
+  <div class="content">
+    <article>
+      <section class="tldr">
+        <div class="tldr-label">TL;DR</div>
+        <p>A Linux VM was shutting down daily at 03:48 UTC due to platform-level Hyper-V shutdown requests. The fix was to implement deterministic scheduling with Azure Functions: start at 06:00 UTC and stop at 22:00 UTC. This delivered predictable operations and lower costs versus Automation Runbooks and Logic Apps.</p>
+      </section>
+
+      <h2 id="problem">1. Problem Statement</h2>
+      <p>The VM <code>firefly-jairo-vm</code> was turning off unexpectedly every day despite auto-shutdown being disabled.</p>
+      <ul>
+        <li>VM: Ubuntu 22.04 LTS</li>
+        <li>Size: Standard_D2s_v3</li>
+        <li>Pattern: shutdown around 03:48 AM UTC</li>
+        <li>No local cron or admin-issued shutdown commands</li>
+      </ul>
+
+      <h3>Root Cause Evidence</h3>
+      <pre><code>kernel: hv_utils: Shutdown request received - graceful shutdown initiated
+systemd[1]: Reached target shutdown.target - System Shutdown.
+systemd[1]: Finished systemd-poweroff.service - System Power Off.</code></pre>
+      <p>Interpretation: graceful shutdown signals came from the virtualization layer, not from workload-level automation.</p>
+
+      <h2 id="architecture">2. Architecture</h2>
+      <pre><code>Timer Trigger (06:00 UTC)  -> begin_start()     -> Azure VM
+Timer Trigger (22:00 UTC)  -> begin_power_off() -> Azure VM
+Authentication             -> Managed Identity  -> RBAC (VM Contributor)</code></pre>
+
+      <h2 id="implementation">3. Implementation Highlights</h2>
+      <ul>
+        <li>Python Azure Functions v4 using decorator model in <code>function_app.py</code></li>
+        <li>Credential: <code>DefaultAzureCredential()</code> with system-assigned managed identity</li>
+        <li>Compute SDK: <code>azure-mgmt-compute</code></li>
+        <li>Schedules: <code>0 6 * * *</code> and <code>0 22 * * *</code></li>
+      </ul>
+
+      <h3>Core Dependencies</h3>
+      <pre><code>azure-functions==1.18.0
+azure-identity==1.14.0
+azure-mgmt-compute==30.7.0</code></pre>
+
+      <h2 id="pricing">4. Pricing Comparison (May 2026)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>Monthly</th>
+            <th>Annual</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Azure Functions</td>
+            <td>$0.50-$1.50</td>
+            <td>$6-$18</td>
+            <td>Within free tier for this workload</td>
+          </tr>
+          <tr>
+            <td>Azure Automation</td>
+            <td>$3.80</td>
+            <td>$45.60</td>
+            <td>Fixed account charge</td>
+          </tr>
+          <tr>
+            <td>Azure Logic Apps</td>
+            <td>$30-$35</td>
+            <td>$360-$420</td>
+            <td>Execution-based pricing</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Outcome: Functions provided the best cost/performance trade-off for low-frequency VM operations.</p>
+
+      <h2 id="deploy">5. Deployment Runbook</h2>
+      <ol>
+        <li>Create or use resource group <code>personal-projects</code>.</li>
+        <li>Create storage account for Functions artifacts.</li>
+        <li>Create Function App (Python 3.11, v4).</li>
+        <li>Enable managed identity and assign <code>Virtual Machine Contributor</code> at RG scope.</li>
+        <li>Publish with <code>func azure functionapp publish &lt;app-name&gt; --build remote</code>.</li>
+      </ol>
+
+      <h2 id="ops">6. Operations and Validation</h2>
+      <ul>
+        <li>Verify functions exist with <code>az functionapp function list</code></li>
+        <li>Stream logs with <code>az functionapp log tail</code></li>
+        <li>Confirm VM state transitions at schedule times</li>
+        <li>Track failures and retries in Application Insights</li>
+      </ul>
+
+      <h2 id="lessons">7. Lessons Learned</h2>
+      <ul>
+        <li>Platform maintenance events can be deterministic but opaque from inside the guest OS.</li>
+        <li>Intentional scheduling beats reactive troubleshooting for non-production windows.</li>
+        <li>Serverless automation can keep control-plane costs near zero for simple runbooks.</li>
+      </ul>
+
+      <div class="footer">
+        <p>Author: Jairo da Silva Queiroz | Cloud Solution Architect</p>
+        <p>Source package: azure-vm-scheduler-case-study.md, DEPLOYMENT.md, PRICING-COMPARISON.md</p>
+        <p>Back to <a href="https://jairosqueiroz.github.io/kb/">Knowledge Base</a></p>
+      </div>
+    </article>
+
+    <aside class="aside">
+      <h4>On This Page</h4>
+      <a href="#problem">1. Problem Statement</a>
+      <a href="#architecture">2. Architecture</a>
+      <a href="#implementation">3. Implementation</a>
+      <a href="#pricing">4. Pricing</a>
+      <a href="#deploy">5. Deployment</a>
+      <a href="#ops">6. Operations</a>
+      <a href="#lessons">7. Lessons Learned</a>
+      <hr style="margin: 12px 0; border: none; border-top: 1px solid #e2e8f0;">
+      <h4>Related Docs</h4>
+      <a href="./azure-vm-scheduler-case-study.md">Case Study (MD)</a>
+      <a href="./DEPLOYMENT.md">Deployment Guide</a>
+      <a href="./PRICING-COMPARISON.md">Pricing Comparison</a>
+    </aside>
+  </div>
+</div>
+</body>
+</html>
