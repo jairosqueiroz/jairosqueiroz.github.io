@@ -497,19 +497,11 @@
 
   <header class="article-hero">
     <h1 itemprop="headline">Cloud-to-AD User Bridge</h1>
-    <div class="hero-sub">Importing Microsoft Entra ID Users into On-Premises Active Directory — soft-match &amp; hard-match strategies, idempotent PowerShell, production-ready runbook</div>
+    <div class="hero-sub">Importing Microsoft Entra ID users into on-premises Active Directory using soft-match and hard-match strategies, idempotent PowerShell, and production-ready operations</div>
     <div class="hero-meta">
       <span><span class="badge-hero">v1.0</span></span>
-      <span><span class="badge-hero">Published May 2026</span></span>
-      <span><span class="badge-hero">Hybrid Identity Series</span></span>
-      <span>14 min read</span>
-    </div>
-    <div class="article-tags-hero">
-      <span class="tag-hero">Identity</span>
-      <span class="tag-hero">Microsoft Entra ID</span>
-      <span class="tag-hero">Active Directory</span>
-      <span class="tag-hero">PowerShell</span>
-      <span class="tag-hero">Entra Connect</span>
+      <span><span class="badge-hero">May 2026</span></span>
+      <span><span class="badge-hero">Hybrid Identity</span></span>
     </div>
   </header>
 
@@ -518,12 +510,12 @@
     <span class="tags-label">Tags</span>
     <a class="tag" href="#why-this-exists">hybrid-identity</a>
     <a class="tag" href="#how-sync-flows">entra-connect</a>
-    <a class="tag purple" href="#soft-vs-hard-match">soft-match</a>
-    <a class="tag purple" href="#soft-vs-hard-match">hard-match</a>
+    <a class="tag" href="#soft-vs-hard-match">soft-match</a>
+    <a class="tag" href="#soft-vs-hard-match">hard-match</a>
     <a class="tag" href="#soft-vs-hard-match">immutable-id</a>
-    <a class="tag teal" href="#step-by-step">powershell</a>
-    <a class="tag teal" href="#step-by-step">active-directory</a>
-    <a class="tag" href="#step-by-step">ms-graph-powershell</a>
+    <a class="tag" href="#step-by-step">powershell</a>
+    <a class="tag" href="#step-by-step">active-directory</a>
+    <a class="tag" href="#step-by-step">ms-graph</a>
     <a class="tag" href="#production-mode">idempotent</a>
     <a class="tag" href="#common-pitfalls">troubleshooting</a>
   </div>
@@ -871,23 +863,62 @@
 
       <!-- ═══ SECTION 8: REFERENCES ═══ -->
       <h2 id="references">8. References</h2>
-      <ul>
-        <li><a href="https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-syncservice-features" target="_blank" rel="noopener">Microsoft Entra Connect — sync service features</a></li>
-        <li><a href="https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-install-prerequisites" target="_blank" rel="noopener">Entra Connect prerequisites and supported topologies</a></li>
-        <li><a href="https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-fed-management" target="_blank" rel="noopener">Custom domain federation and UPN management</a></li>
-        <li><a href="https://learn.microsoft.com/en-us/azure/storage/files/storage-files-identity-auth-hybrid-identities-enable" target="_blank" rel="noopener">Enable Microsoft Entra Kerberos for hybrid identities (Azure Files)</a></li>
-        <li><a href="https://learn.microsoft.com/en-us/powershell/microsoftgraph/overview" target="_blank" rel="noopener">Microsoft Graph PowerShell SDK</a></li>
-        <li><a href="https://learn.microsoft.com/en-us/powershell/module/activedirectory/" target="_blank" rel="noopener">Active Directory PowerShell module reference</a></li>
-      </ul>
 
-      <!-- Author -->
       <div class="article-footer">
         <div class="author-card">
-          <div class="author-avatar">JQ</div>
+          <div class="author-avatar">J</div>
           <div>
-            <div class="author-name">Jairo Queiroz</div>
-            <div class="author-role">Cloud Solution Architect — Azure, Identity &amp; Security</div>
+            <div class="author-name" itemprop="author">Jairo da Silva Queiroz</div>
+            <div class="author-role">Cloud Solution Architect · <a href="https://jairosqueiroz.github.io">jairosqueiroz.github.io</a></div>
           </div>
+        </div>
+        <div class="refs-footer">
+          <div class="refs-title">References &amp; Official Documentation</div>
+          <div class="refs-grid">
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-syncservice-features" target="_blank" rel="noopener">Entra Connect Sync Service Features</a>
+                <span>Microsoft Learn — AD → Entra ID synchronization</span>
+              </div>
+            </div>
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-install-prerequisites" target="_blank" rel="noopener">Entra Connect Prerequisites &amp; Topologies</a>
+                <span>Microsoft Learn — supported environments and sizing</span>
+              </div>
+            </div>
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-fed-management" target="_blank" rel="noopener">Custom Domain &amp; UPN Management</a>
+                <span>Microsoft Learn — verified domains and federation</span>
+              </div>
+            </div>
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/azure/storage/files/storage-files-identity-auth-hybrid-identities-enable" target="_blank" rel="noopener">Entra Kerberos for Azure Files</a>
+                <span>Microsoft Learn — hybrid identity authentication</span>
+              </div>
+            </div>
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/powershell/microsoftgraph/overview" target="_blank" rel="noopener">Microsoft Graph PowerShell SDK</a>
+                <span>Microsoft Learn — user export and automation</span>
+              </div>
+            </div>
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/powershell/module/activedirectory/" target="_blank" rel="noopener">Active Directory PowerShell Module</a>
+                <span>Microsoft Learn — on-premises AD provisioning</span>
+              </div>
+            </div>
+          </div>
+          <div class="footer-copy">Cloud-to-AD User Bridge · Hybrid Identity · May 2026 · <a href="https://jairosqueiroz.github.io/kb/" style="color:#9ca3af">jairosqueiroz.github.io/kb</a></div>
         </div>
       </div>
 
@@ -920,16 +951,6 @@
     </aside>
 
   </div>
-
-  <!-- Article-level footer (same pattern as PS article) -->
-  <footer style="padding: 16px 40px 24px; border-top: 1px solid #e2e8f0; background: #f7fafc;">
-    <div style="font-size: 11.5px; color: #2d3748; font-weight: 600; margin-bottom: 4px;">
-      <span>Document version 1.0 — Published: <time datetime="2026-05-04">May 4, 2026</time></span>
-    </div>
-    <div style="font-size: 11px; color: #718096;">
-      Cloud-to-AD User Bridge · Hybrid Identity Series · <a href="https://jairosqueiroz.github.io" style="color:#9ca3af">jairosqueiroz.github.io</a>
-    </div>
-  </footer>
 
 </article>
 
