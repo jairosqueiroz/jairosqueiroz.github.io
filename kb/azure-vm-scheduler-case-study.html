@@ -236,13 +236,13 @@ Authentication             -> Managed Identity  -> RBAC (VM Contributor)</code><
         <li>Python Azure Functions v4 using decorator model in <code>function_app.py</code></li>
         <li>Credential: <code>DefaultAzureCredential()</code> with system-assigned managed identity</li>
         <li>Compute SDK: <code>azure-mgmt-compute</code></li>
-        <li>Schedules: <code>0 6 * * *</code> and <code>0 22 * * *</code></li>
+        <li>Schedules: <code>0 0 6 * * *</code> and <code>0 0 22 * * *</code> (UTC)</li>
       </ul>
 
       <h3>Core Dependencies</h3>
       <pre><code>azure-functions==1.18.0
 azure-identity==1.14.0
-azure-mgmt-compute==30.7.0</code></pre>
+    azure-mgmt-compute==30.6.0</code></pre>
 
       <h2 id="pricing">4. Pricing Comparison (May 2026)</h2>
       <table>
@@ -276,14 +276,23 @@ azure-mgmt-compute==30.7.0</code></pre>
         </tbody>
       </table>
       <p>Outcome: Functions provided the best cost/performance trade-off for low-frequency VM operations.</p>
+      <p><em>Pricing reference footer: values vary by resource region and currency. Figures in this comparison were updated and validated as of 2026-05-06 (UTC) for quick future reference.</em></p>
 
       <h2 id="deploy">5. Deployment Runbook</h2>
       <ol>
-        <li>Create or use resource group <code>personal-projects</code>.</li>
-        <li>Create storage account for Functions artifacts.</li>
-        <li>Create Function App (Python 3.11, v4).</li>
-        <li>Enable managed identity and assign <code>Virtual Machine Contributor</code> at RG scope.</li>
-        <li>Publish with <code>func azure functionapp publish &lt;app-name&gt; --build remote</code>.</li>
+        <li>Create or use a dedicated resource group (example: <code>rg-automation-prod</code>).</li>
+        <li>Create a storage account for Functions runtime and package artifacts.</li>
+        <li>Create a Python 3.11 Function App (Flex Consumption or Consumption plan).</li>
+        <li>Enable system-assigned managed identity on the Function App.</li>
+        <li>Grant least-privilege RBAC:
+          <ul>
+            <li><code>Virtual Machine Contributor</code> on the target VM scope (or resource group scope when needed)</li>
+            <li><code>Storage Blob Data Contributor</code>, <code>Storage Queue Data Contributor</code>, and <code>Storage Table Data Contributor</code> on the storage account</li>
+          </ul>
+        </li>
+        <li>Set deployment storage authentication to managed identity (no key-based auth).</li>
+        <li>Set app settings using generic target values (example: <code>AZURE_SUBSCRIPTION_ID</code>, <code>RESOURCE_GROUP=rg-workloads-prod</code>, <code>VM_NAME=target-workload-vm</code>).</li>
+        <li>Publish with <code>func azure functionapp publish &lt;app-name&gt; --build remote</code> and confirm triggers are registered.</li>
       </ol>
 
       <h2 id="ops">6. Operations and Validation</h2>
