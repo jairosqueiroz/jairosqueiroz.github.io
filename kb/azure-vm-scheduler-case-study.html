@@ -3,16 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Azure VM Scheduler Case Study - Cost-Optimized Start/Stop with Azure Functions</title>
-<meta name="description" content="Case study: solve daily Azure VM shutdowns with scheduled start/stop using Azure Functions. Includes root cause, architecture, deployment runbook, and pricing comparison.">
-<meta name="keywords" content="Azure Functions, Azure VM, scheduling, cost optimization, automation, python, managed identity">
+<title>Azure VM Scheduler — Cost-Optimized Start/Stop with Azure Functions</title>
+
+<!-- SEO & Indexing -->
+<meta name="description" content="Case study: solving daily unplanned Azure VM shutdowns by implementing deterministic start/stop scheduling with Azure Functions timer triggers and managed identity. Includes root cause analysis, architecture, deployment runbook, and pricing comparison.">
+<meta name="keywords" content="Azure Functions, Azure VM, VM scheduling, cost optimization, timer trigger, managed identity, Python, azure-mgmt-compute, DefaultAzureCredential, Flex Consumption">
 <meta name="author" content="Jairo da Silva Queiroz">
 <meta name="robots" content="index, follow">
 <meta name="revised" content="2026-05-06">
 <link rel="canonical" href="https://jairosqueiroz.github.io/kb/azure-vm-scheduler-case-study.html">
+
+<!-- Open Graph -->
 <meta property="og:type" content="article">
-<meta property="og:title" content="Azure VM Scheduler Case Study - Cost-Optimized Start/Stop with Azure Functions">
-<meta property="og:description" content="From random daily shutdowns to predictable VM operations with Azure Functions timer triggers.">
+<meta property="og:title" content="Azure VM Scheduler — Cost-Optimized Start/Stop with Azure Functions">
+<meta property="og:description" content="From random daily shutdowns to predictable VM operations with Azure Functions timer triggers, managed identity, and zero key-based auth.">
 <meta property="og:url" content="https://jairosqueiroz.github.io/kb/azure-vm-scheduler-case-study.html">
 <meta property="og:locale" content="en_US">
 <meta property="article:published_time" content="2026-05-06">
@@ -21,195 +25,441 @@
 <meta property="article:tag" content="Azure VM">
 <meta property="article:tag" content="Cost Optimization">
 <meta property="article:tag" content="Automation">
+<meta property="article:tag" content="Python">
+
+<!-- Schema.org structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Azure VM Scheduler — Cost-Optimized Start/Stop with Azure Functions",
+  "description": "Case study: solving daily unplanned Azure VM shutdowns by implementing deterministic start/stop scheduling with Azure Functions timer triggers and managed identity.",
+  "keywords": "Azure Functions, Azure VM, timer trigger, managed identity, Python, cost optimization, automation",
+  "datePublished": "2026-05-06",
+  "dateModified": "2026-05-06",
+  "version": "1.0",
+  "author": {
+    "@type": "Person",
+    "name": "Jairo da Silva Queiroz",
+    "url": "https://jairosqueiroz.github.io"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "Jairo da Silva Queiroz",
+    "url": "https://jairosqueiroz.github.io"
+  },
+  "citation": [
+    {
+      "@type": "WebPage",
+      "name": "Azure Functions Python Developer Guide — Microsoft Learn",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-reference-python"
+    },
+    {
+      "@type": "WebPage",
+      "name": "Azure Functions Timer Trigger — Microsoft Learn",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-timer"
+    },
+    {
+      "@type": "WebPage",
+      "name": "Managed Identities for Azure Resources — Microsoft Learn",
+      "url": "https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview"
+    }
+  ]
+}
+</script>
 <style>
-:root {
-  --accent: #2563eb;
-  --accent-soft: #dbeafe;
-  --text: #0f172a;
-  --muted: #475569;
-  --border: #e2e8f0;
-  --bg: #f7fafc;
-  --card: #ffffff;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  line-height: 1.7;
-  color: var(--text);
-  background: var(--bg);
-}
-.site-nav {
-  background: #1a2332;
-  padding: 10px 28px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 18px;
-  flex-wrap: wrap;
-}
-.site-nav a { color: rgba(255,255,255,0.9); font-size: 13px; text-decoration: none; }
-.site-nav a:hover { color: #ffffff; }
-.page {
-  max-width: 1120px;
-  margin: 0 auto;
-  background: var(--card);
-  box-shadow: 0 4px 18px rgba(15,23,42,0.08);
-}
-.article-hero {
-  background: linear-gradient(135deg, #1a2332 0%, #2d4a6f 100%);
-  color: #ffffff;
-  padding: 30px 34px;
-}
-.article-hero h1 { font-size: 29px; line-height: 1.25; margin-bottom: 10px; }
-.hero-sub { font-size: 14px; opacity: 0.9; max-width: 900px; }
-.hero-meta {
-  margin-top: 12px;
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  font-size: 12.5px;
-  opacity: 0.9;
-}
-.tags {
-  padding: 14px 34px 0;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.tag {
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 11px;
-  color: #334155;
-}
-.content {
-  padding: 24px 34px 42px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 250px;
-  gap: 36px;
-}
-.tldr {
-  background: linear-gradient(135deg, var(--accent-soft), #ede9fe);
-  border-left: 4px solid var(--accent);
-  border-radius: 8px;
-  padding: 16px 18px;
-  margin-bottom: 24px;
-}
-.tldr-label {
-  font-size: 11px;
-  letter-spacing: 0.9px;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: #1d4ed8;
-  margin-bottom: 8px;
-}
-h2 {
-  margin-top: 28px;
-  margin-bottom: 10px;
-  font-size: 22px;
-  line-height: 1.3;
-}
-h3 {
-  margin-top: 20px;
-  margin-bottom: 8px;
-  font-size: 18px;
-}
-p, li { color: var(--text); font-size: 15px; }
-ul, ol { margin: 10px 0 10px 22px; }
-code {
-  font-family: Consolas, Monaco, "Courier New", monospace;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  padding: 1px 5px;
-  font-size: 13px;
-}
-pre {
-  background: #0f172a;
-  color: #e2e8f0;
-  border-radius: 8px;
-  padding: 14px;
-  overflow-x: auto;
-  margin: 12px 0;
-}
-pre code {
-  background: transparent;
-  border: none;
-  color: inherit;
-  padding: 0;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 12px 0;
-  font-size: 14px;
-}
-th, td {
-  border: 1px solid var(--border);
-  padding: 8px;
-  text-align: left;
-}
-th { background: #f8fafc; }
-.aside {
-  position: sticky;
-  top: 18px;
-  align-self: start;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px;
-  background: #fcfdff;
-}
-.aside h4 { font-size: 14px; margin-bottom: 8px; }
-.aside a { display: block; color: #2563eb; text-decoration: none; font-size: 13px; margin-bottom: 6px; }
-.aside a:hover { text-decoration: underline; }
-.footer {
-  border-top: 1px solid var(--border);
-  margin-top: 30px;
-  padding-top: 16px;
-  color: var(--muted);
-  font-size: 13px;
-}
-@media (max-width: 920px) {
-  .content { grid-template-columns: 1fr; }
-  .aside { position: static; }
-}
+  :root {
+    --accent: #2563EB;
+    --accent-dark: #1D4ED8;
+    --accent-light: #DBEAFE;
+    --purple: #7C3AED;
+    --success: #059669;
+    --success-bg: #D1FAE5;
+    --warning: #D97706;
+    --warning-bg: #FEF3C7;
+    --text: #0F172A;
+    --text-muted: #475569;
+    --text-subtle: #64748B;
+    --border: #E2E8F0;
+    --border-light: #F1F5F9;
+    --bg: #FFFFFF;
+    --bg-soft: #F8FAFC;
+    --bg-code: #0F172A;
+    --code-text: #E2E8F0;
+    --code-keyword: #93C5FD;
+    --code-string: #86EFAC;
+    --code-comment: #64748B;
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.05), 0 2px 4px rgba(15, 23, 42, 0.06);
+    --radius: 8px;
+    --mono: 'SF Mono', Monaco, Menlo, Consolas, 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text);
+    background: #f7fafc;
+  }
+
+  /* ── SITE NAV (matches powershell-5-vs-7-comparison.html) ── */
+  .site-nav {
+    background: #1a2332;
+    padding: 10px 40px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .site-nav a {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    text-decoration: none;
+  }
+  .site-nav a:hover { color: #fff; }
+  .dl-btn {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    padding: 3px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .dl-btn:hover { background: rgba(255,255,255,0.25); color: #fff; }
+
+  /* ── PAGE WRAPPER (matches powershell-5-vs-7-comparison.html) ── */
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+
+  /* ── ARTICLE HEADER ── */
+  .article-hero {
+    background: linear-gradient(135deg, #1a2332 0%, #2d4a6f 100%);
+    color: #fff;
+    padding: 32px 40px 28px;
+  }
+  .article-hero h1 {
+    margin: 0 0 10px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    line-height: 1.25;
+  }
+  .hero-sub {
+    font-size: 14px;
+    opacity: 0.85;
+    line-height: 1.55;
+    max-width: 860px;
+  }
+  .hero-meta {
+    margin-top: 14px;
+    font-size: 13px;
+    opacity: 0.85;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .hero-meta span { display: flex; align-items: center; gap: 5px; }
+  .badge-hero {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── TAGS SECTION (matches powershell-5-vs-7-comparison.html) ── */
+  .tags-section {
+    padding: 14px 40px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
+  }
+  .tags-label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-right: 4px; }
+  .tag {
+    display: inline-block;
+    background: #e8f4fd;
+    color: #0078d4;
+    border: 1px solid #bee3f8;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11.5px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .tag:hover { background: #d0e8f7; }
+
+  /* ── LAYOUT ── */
+  .content {
+    padding: 28px 40px 40px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 48px;
+  }
+  .article { min-width: 0; }
+
+  /* ── TL;DR BOX ── */
+  .tldr {
+    background: linear-gradient(135deg, var(--accent-light), #EDE9FE);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin: 0 0 28px;
+  }
+  .tldr-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--accent-dark);
+    margin-bottom: 10px;
+  }
+  .tldr p { margin: 0; color: var(--text); font-size: 15px; line-height: 1.65; }
+
+  /* ── TYPOGRAPHY ── */
+  .article h2 {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.2px;
+    color: var(--text);
+    margin: 40px 0 12px;
+    padding-top: 12px;
+    padding-bottom: 8px;
+    scroll-margin-top: 20px;
+    border-bottom: 2px solid var(--border-light);
+  }
+  .article h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 24px 0 8px;
+    scroll-margin-top: 20px;
+  }
+  .article p { margin-bottom: 14px; color: var(--text); font-size: 15px; }
+  .article ul, .article ol { margin: 0 0 14px 24px; font-size: 15px; }
+  .article li { margin-bottom: 5px; }
+  .article a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s; }
+  .article a:hover { border-bottom-color: var(--accent); }
+  .article code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: var(--bg-soft);
+    color: var(--purple);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+  }
+
+  /* ── CODE BLOCKS ── */
+  .code-block {
+    background: var(--bg-code);
+    border-radius: var(--radius);
+    margin: 16px 0;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 11.5px;
+    color: #94A3B8;
+  }
+  .code-lang { font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; font-size: 10.5px; }
+  .code-block pre { padding: 14px 18px; overflow-x: auto; color: var(--code-text); margin: 0; }
+  .code-block .k { color: var(--code-keyword); }
+  .code-block .s { color: var(--code-string); }
+  .code-block .c { color: var(--code-comment); font-style: italic; }
+
+  /* ── TABLES ── */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin: 16px 0;
+    box-shadow: var(--shadow);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; background: var(--bg); }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--border-light); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #f7fafc; }
+  th { background: #f7fafc; font-weight: 600; color: #718096; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); }
+  tbody tr:hover { background: var(--bg-soft); }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin: 20px 0;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .callout.info    { background: var(--accent-light); border-left: 4px solid var(--accent); }
+  .callout.warn    { background: var(--warning-bg);   border-left: 4px solid var(--warning); }
+  .callout.success { background: var(--success-bg);   border-left: 4px solid var(--success); }
+  .callout-title { font-weight: 700; margin-bottom: 4px; font-size: 13.5px; color: var(--accent-dark); }
+  .callout.warn    .callout-title { color: var(--warning); }
+  .callout.success .callout-title { color: var(--success); }
+
+  /* ── TOC SIDEBAR ── */
+  .toc { position: sticky; top: 20px; align-self: start; max-height: calc(100vh - 40px); overflow-y: auto; }
+  .toc-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #718096; margin-bottom: 12px; }
+  .toc ol { list-style: none; margin: 0; padding: 0; }
+  .toc li { margin-bottom: 5px; }
+  .toc a {
+    color: #718096;
+    text-decoration: none;
+    font-size: 12.5px;
+    line-height: 1.45;
+    display: block;
+    padding: 3px 0 3px 10px;
+    margin-left: -12px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .toc a:hover { color: var(--accent); border-left-color: var(--accent); }
+  .toc-divider { margin: 14px 0 10px; border: none; border-top: 1px solid var(--border); }
+  .toc-section-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #718096; margin-bottom: 10px; }
+  .toc .ref-link {
+    display: block;
+    color: #0078d4;
+    font-size: 12px;
+    text-decoration: none;
+    padding: 3px 0;
+    margin-bottom: 6px;
+    line-height: 1.4;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .toc .ref-link:hover { border-bottom-color: #0078d4; }
+  .toc .ref-link span { display: block; font-size: 10.5px; color: #718096; }
+
+  /* ── ARTICLE FOOTER ── */
+  .article-footer { margin-top: 48px; padding-top: 28px; border-top: 1px solid var(--border); }
+  .author-card { display: flex; align-items: center; gap: 14px; padding: 18px; background: var(--bg-soft); border-radius: var(--radius); border: 1px solid var(--border-light); }
+  .author-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--purple)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 19px; flex-shrink: 0; }
+  .author-name { font-weight: 700; color: var(--text); margin-bottom: 2px; font-size: 15px; }
+  .author-role { font-size: 12.5px; color: var(--text-subtle); }
+  .refs-footer { margin-top: 28px; }
+  .refs-title { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 12px; }
+  .refs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .ref-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--text); }
+  .ref-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .ref-item a { color: #0078d4; text-decoration: none; line-height: 1.4; }
+  .ref-item a:hover { text-decoration: underline; }
+  .ref-item span { color: #718096; font-size: 11px; display: block; }
+  .footer-copy { margin-top: 20px; font-size: 11px; color: #718096; text-align: center; }
+
+  /* ── SITE FOOTER (matches powershell-5-vs-7-comparison.html) ── */
+  .site-footer {
+    background: #1a2332;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 20px 40px;
+    text-align: center;
+    font-size: 12px;
+    max-width: 1180px;
+    margin: 0 auto;
+    border-radius: 0 0 10px 10px;
+  }
+  .site-footer a { color: rgba(255, 255, 255, 0.9); text-decoration: none; }
+  .site-footer a:hover { color: #fff; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .content { grid-template-columns: 1fr; gap: 0; padding: 20px; }
+    .toc { display: none; }
+    .article-hero { padding: 24px 20px 20px; }
+    .article-hero h1 { font-size: 21px; }
+    .tags-section { padding: 12px 20px 0; }
+    .site-nav { padding: 10px 20px; justify-content: center; }
+    .site-footer { padding: 20px; }
+    .refs-grid { grid-template-columns: 1fr; }
+  }
+  @media print {
+    .site-nav, .toc, .site-footer { display: none; }
+    body { background: #fff; }
+    .page { box-shadow: none; border-radius: 0; max-width: none; }
+    .code-block { break-inside: avoid; }
+  }
 </style>
 </head>
 <body>
+
+<!-- Site Navigation -->
 <nav class="site-nav">
-  <a href="https://jairosqueiroz.github.io/index.html">Home</a>
-  <a href="https://jairosqueiroz.github.io/kb/">Knowledge Base</a>
-  <a href="https://jairosqueiroz.github.io/cv.html">CV</a>
-  <a href="https://github.com/jairosqueiroz">GitHub</a>
+  <a href="../index.html">Home</a>
+  <a href="../cv.html">CV</a>
+  <a href="index.html">Knowledge Base</a>
+  <a href="../contato.html">Contact</a>
+  <button class="dl-btn" onclick="downloadPage()">Download Page</button>
 </nav>
 
-<div class="page">
+<article class="page" itemscope itemtype="https://schema.org/TechArticle">
+  <meta itemprop="datePublished" content="2026-05-06">
+  <meta itemprop="dateModified" content="2026-05-06">
+  <meta itemprop="version" content="1.0">
+  <meta itemprop="keywords" content="Azure Functions, Azure VM, timer trigger, managed identity, Python, cost optimization, automation">
+
   <header class="article-hero">
-    <h1>Azure VM Scheduler Case Study</h1>
-    <p class="hero-sub">Solving daily unplanned VM shutdowns by switching to intentional start/stop scheduling with Azure Functions timer triggers and managed identity.</p>
+    <h1 itemprop="headline">Azure VM Scheduler</h1>
+    <div class="hero-sub">Solving daily unplanned VM shutdowns by switching to intentional start/stop scheduling with Azure Functions timer triggers and managed identity — zero key-based auth</div>
     <div class="hero-meta">
-      <span>Published: May 2026</span>
-      <span>Version: v1.0</span>
-      <span>Reading time: 10 min</span>
-      <span>Region: East US / Brazil South</span>
+      <span><span class="badge-hero">v1.0</span></span>
+      <span><span class="badge-hero">May 2026</span></span>
+      <span><span class="badge-hero">Flex Consumption</span></span>
+      <span><span class="badge-hero">Python 3.11</span></span>
     </div>
   </header>
 
-  <section class="tags">
-    <span class="tag">Azure VM</span>
-    <span class="tag">Azure Functions</span>
-    <span class="tag">Cost Optimization</span>
-    <span class="tag">Automation</span>
-    <span class="tag">Python</span>
-  </section>
+  <!-- Tags for indexing -->
+  <div class="tags-section" aria-label="Document tags">
+    <span class="tags-label">Tags</span>
+    <a class="tag" href="#problem">azure-vm</a>
+    <a class="tag" href="#architecture">azure-functions</a>
+    <a class="tag" href="#implementation">timer-trigger</a>
+    <a class="tag" href="#implementation">managed-identity</a>
+    <a class="tag" href="#implementation">python</a>
+    <a class="tag" href="#pricing">cost-optimization</a>
+    <a class="tag" href="#deploy">flex-consumption</a>
+    <a class="tag" href="#deploy">automation</a>
+    <a class="tag" href="#lessons">devops</a>
+  </div>
 
   <div class="content">
-    <article>
-      <section class="tldr">
+    <div class="article">
+
+      <div class="tldr">
         <div class="tldr-label">TL;DR</div>
         <p>A Linux VM was shutting down daily at 03:48 UTC due to platform-level Hyper-V shutdown requests. The fix was to implement deterministic scheduling with Azure Functions: start at 06:00 UTC and stop at 22:00 UTC. This delivered predictable operations and lower costs versus Automation Runbooks and Logic Apps.</p>
-      </section>
+      </div>
 
       <h2 id="problem">1. Problem Statement</h2>
       <p>The VM <code>target-workload-vm</code> was turning off unexpectedly every day despite auto-shutdown being disabled.</p>
@@ -221,15 +471,21 @@ th { background: #f8fafc; }
       </ul>
 
       <h3>Root Cause Evidence</h3>
-      <pre><code>kernel: hv_utils: Shutdown request received - graceful shutdown initiated
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">syslog</span></div>
+        <pre>kernel: hv_utils: Shutdown request received - graceful shutdown initiated
 systemd[1]: Reached target shutdown.target - System Shutdown.
-systemd[1]: Finished systemd-poweroff.service - System Power Off.</code></pre>
+systemd[1]: Finished systemd-poweroff.service - System Power Off.</pre>
+      </div>
       <p>Interpretation: graceful shutdown signals came from the virtualization layer, not from workload-level automation.</p>
 
       <h2 id="architecture">2. Architecture</h2>
-      <pre><code>Timer Trigger (06:00 UTC)  -> begin_start()     -> Azure VM
-Timer Trigger (22:00 UTC)  -> begin_power_off() -> Azure VM
-Authentication             -> Managed Identity  -> RBAC (VM Contributor)</code></pre>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">diagram</span></div>
+        <pre>Timer Trigger (06:00 UTC)  -&gt;  begin_start()     -&gt;  Azure VM
+Timer Trigger (22:00 UTC)  -&gt;  begin_power_off() -&gt;  Azure VM
+Authentication             -&gt;  Managed Identity  -&gt;  RBAC (VM Contributor)</pre>
+      </div>
 
       <h2 id="implementation">3. Implementation Highlights</h2>
       <ul>
@@ -240,43 +496,50 @@ Authentication             -> Managed Identity  -> RBAC (VM Contributor)</code><
       </ul>
 
       <h3>Core Dependencies</h3>
-      <pre><code>azure-functions==1.18.0
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">requirements.txt</span></div>
+        <pre>azure-functions==1.18.0
 azure-identity==1.14.0
-    azure-mgmt-compute==30.6.0</code></pre>
+azure-mgmt-compute==30.6.0</pre>
+      </div>
 
       <h2 id="pricing">4. Pricing Comparison (May 2026)</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Option</th>
-            <th>Monthly</th>
-            <th>Annual</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Azure Functions</td>
-            <td>$0.50-$1.50</td>
-            <td>$6-$18</td>
-            <td>Within free tier for this workload</td>
-          </tr>
-          <tr>
-            <td>Azure Automation</td>
-            <td>$3.80</td>
-            <td>$45.60</td>
-            <td>Fixed account charge</td>
-          </tr>
-          <tr>
-            <td>Azure Logic Apps</td>
-            <td>$30-$35</td>
-            <td>$360-$420</td>
-            <td>Execution-based pricing</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="callout info">
+        <div><div class="callout-title">Pricing note</div>Figures below are estimated list prices before EA/CSP discounts, validated as of 2026-05-06. Actual cost varies by region and currency.</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Option</th>
+              <th>Est. Monthly</th>
+              <th>Est. Annual</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Azure Functions (Flex Consumption)</td>
+              <td>$0.50–$1.50</td>
+              <td>$6–$18</td>
+              <td>Within free tier for this workload</td>
+            </tr>
+            <tr>
+              <td>Azure Automation</td>
+              <td>$3.80</td>
+              <td>$45.60</td>
+              <td>Fixed account charge</td>
+            </tr>
+            <tr>
+              <td>Azure Logic Apps</td>
+              <td>$30–$35</td>
+              <td>$360–$420</td>
+              <td>Execution-based pricing</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p>Outcome: Functions provided the best cost/performance trade-off for low-frequency VM operations.</p>
-      <p><em>Pricing reference footer: values vary by resource region and currency. Figures in this comparison were updated and validated as of 2026-05-06 (UTC) for quick future reference.</em></p>
 
       <h2 id="deploy">5. Deployment Runbook</h2>
       <ol>
@@ -310,29 +573,120 @@ azure-identity==1.14.0
         <li>Serverless automation can keep control-plane costs near zero for simple runbooks.</li>
       </ul>
 
-      <div class="footer">
-        <p>Author: Jairo da Silva Queiroz | Cloud Solution Architect</p>
-        <p>Source package: azure-vm-scheduler-case-study.md, DEPLOYMENT.md, PRICING-COMPARISON.md</p>
-        <p>Back to <a href="https://jairosqueiroz.github.io/kb/">Knowledge Base</a></p>
+      <div class="article-footer">
+        <div class="author-card">
+          <div class="author-avatar">J</div>
+          <div>
+            <div class="author-name" itemprop="author">Jairo da Silva Queiroz</div>
+            <div class="author-role">Cloud Solution Architect · <a href="https://jairosqueiroz.github.io">jairosqueiroz.github.io</a></div>
+          </div>
+        </div>
+        <div class="refs-footer">
+          <div class="refs-title">References &amp; Official Documentation</div>
+          <div class="refs-grid">
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-reference-python" target="_blank" rel="noopener">Azure Functions Python Developer Guide</a>
+                <span>Microsoft Learn — Python v2 model, decorators, app patterns</span>
+              </div>
+            </div>
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-timer" target="_blank" rel="noopener">Timer Trigger for Azure Functions</a>
+                <span>Microsoft Learn — CRON expressions, schedule examples</span>
+              </div>
+            </div>
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview" target="_blank" rel="noopener">Managed Identities for Azure Resources</a>
+                <span>Microsoft Learn — system-assigned vs user-assigned, RBAC</span>
+              </div>
+            </div>
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential" target="_blank" rel="noopener">DefaultAzureCredential — azure-identity SDK</a>
+                <span>Microsoft Learn — credential chain, managed identity fallback</span>
+              </div>
+            </div>
+            <div class="ref-item">
+              <span class="ref-icon">📘</span>
+              <div>
+                <a href="https://learn.microsoft.com/en-us/python/api/azure-mgmt-compute/" target="_blank" rel="noopener">azure-mgmt-compute Python SDK</a>
+                <span>Microsoft Learn — ComputeManagementClient, VM operations</span>
+              </div>
+            </div>
+            <div class="ref-item">
+              <span class="ref-icon">💰</span>
+              <div>
+                <a href="https://azure.microsoft.com/en-us/pricing/details/functions/" target="_blank" rel="noopener">Azure Functions Pricing</a>
+                <span>Azure.com — Flex Consumption, Consumption, Premium plans</span>
+              </div>
+            </div>
+          </div>
+          <div class="footer-copy">Azure VM Scheduler · Case Study · May 2026 · <a href="https://jairosqueiroz.github.io/kb/" style="color:#9ca3af">jairosqueiroz.github.io/kb</a></div>
+        </div>
       </div>
-    </article>
 
-    <aside class="aside">
-      <h4>On This Page</h4>
-      <a href="#problem">1. Problem Statement</a>
-      <a href="#architecture">2. Architecture</a>
-      <a href="#implementation">3. Implementation</a>
-      <a href="#pricing">4. Pricing</a>
-      <a href="#deploy">5. Deployment</a>
-      <a href="#ops">6. Operations</a>
-      <a href="#lessons">7. Lessons Learned</a>
-      <hr style="margin: 12px 0; border: none; border-top: 1px solid #e2e8f0;">
-      <h4>Related Docs</h4>
-      <a href="./azure-vm-scheduler-case-study.md">Case Study (MD)</a>
-      <a href="./DEPLOYMENT.md">Deployment Guide</a>
-      <a href="./PRICING-COMPARISON.md">Pricing Comparison</a>
-    </aside>
-  </div>
+    </div><!-- /.article -->
+
+    <!-- TOC Sidebar -->
+    <nav class="toc" aria-label="Table of contents">
+      <div class="toc-title">On This Page</div>
+      <ol>
+        <li><a href="#problem">1. Problem Statement</a></li>
+        <li><a href="#architecture">2. Architecture</a></li>
+        <li><a href="#implementation">3. Implementation</a></li>
+        <li><a href="#pricing">4. Pricing Comparison</a></li>
+        <li><a href="#deploy">5. Deployment Runbook</a></li>
+        <li><a href="#ops">6. Operations</a></li>
+        <li><a href="#lessons">7. Lessons Learned</a></li>
+      </ol>
+      <hr class="toc-divider">
+      <div class="toc-section-title">Official Docs</div>
+      <a class="ref-link" href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-reference-python" target="_blank" rel="noopener">
+        Functions Python Guide
+        <span>Microsoft Learn</span>
+      </a>
+      <a class="ref-link" href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-timer" target="_blank" rel="noopener">
+        Timer Trigger / CRON
+        <span>Microsoft Learn</span>
+      </a>
+      <a class="ref-link" href="https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview" target="_blank" rel="noopener">
+        Managed Identities
+        <span>Microsoft Learn</span>
+      </a>
+      <a class="ref-link" href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential" target="_blank" rel="noopener">
+        DefaultAzureCredential
+        <span>azure-identity SDK</span>
+      </a>
+      <a class="ref-link" href="https://azure.microsoft.com/en-us/pricing/details/functions/" target="_blank" rel="noopener">
+        Azure Functions Pricing
+        <span>azure.microsoft.com</span>
+      </a>
+    </nav>
+
+  </div><!-- /.content -->
+</article>
+
+<!-- Site Footer -->
+<div class="site-footer">
+  <a href="../index.html">&larr; Home</a> &middot;
+  <a href="index.html">Knowledge Base</a> &middot;
+  <a href="../cv.html">CV</a> &middot;
+  Jairo da Silva Queiroz
 </div>
+
+<script>
+function downloadPage() {
+  const a = document.createElement('a');
+  a.href = window.location.href;
+  a.download = 'azure-vm-scheduler-case-study.html';
+  a.click();
+}
+</script>
 </body>
 </html>
